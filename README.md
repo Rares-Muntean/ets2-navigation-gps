@@ -28,4 +28,4 @@ euro-truck-nav/
 
 ## Notes
 -   The `public/Tiles/` folder is **ignored in Git** to keep the repository size small.
--   Make sure not to commit the tiles folder. You can add the following to `.gitignore` if it isn’t already **public/Tiles**
+-   Make sure not to commit the tiles folder. You can add the following to `.gitignore` if it isn’t already: `public/Tiles`
