@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { latLng } from "leaflet";
+import { calibrateMap } from "~/assets/utils/calibrationUtility";
 import { ets2ToLeaflet } from "~/assets/utils/mapUtility";
 import type { GeojsonData } from "~~/shared/types/GeoJsonTypes/GeojsonData";
 import type { TelemetryData } from "~~/shared/types/Telemetry/TelemetryData";
+import * as Variables from "~~/shared/variables";
 
 const { map, initMap } = useMap();
 const telemetry = ref<TelemetryData | null>(null);
@@ -42,6 +44,9 @@ onMounted(async () => {
 
     // Handle clicks on map
     map.value.on("click", (e: L.LeafletMouseEvent) => {
+        const p = map.value!.project(e.latlng, Variables.TILESET_MAX_ZOOM);
+        console.log("map click latlng:", e.latlng, "pixel @maxZoom:", p);
+
         const clickedKey: string | null = graph.snapToGraph(
             e.latlng.lat,
             e.latlng.lng
@@ -110,40 +115,79 @@ onMounted(async () => {
         telemetry.value = res;
         console.log("Telemetry updated:", telemetry.value);
 
-        // // Get Truck Data
-        // const truckData = telemetry.value!.truck;
-        // const lat = truckData.placement.z;
-        // const lng = truckData.placement.x;
-        // const [latSimple, lngSimple] = ets2ToLeaflet(lat, lng);
-        // const headingRad = truckData.placement.heading;
-        // const headingDeg = headingRad * (180 / Math.PI);
+        // inside fetchTelemetry (map.value exists)
+        const truckData = telemetry.value!.truck;
+        const gameX = truckData.placement.x;
+        const gameZ = truckData.placement.z;
+        const headingRad = truckData.placement.heading;
+        const headingDeg = headingRad * (180 / Math.PI);
 
-        // console.log(truckData);
+        // get latLng using the map instance
+        const latLng = ets2ToLeaflet(map.value!, gameX, gameZ, {
+            scale: Variables.ETS_SCALE,
+            offsetX: Variables.ETS_OFFSET_X,
+            offsetY: Variables.ETS_OFFSET_Y,
+            invertY: Variables.ETS_INVERT_Y,
+        });
 
-        // const truckIcon = L.icon({
-        //     iconUrl: "/truckMarker.png",
-        //     iconSize: [40, 40],
-        //     iconAnchor: [20, 20],
-        // });
+        const truckIcon = L.icon({
+            iconUrl: "/truckMarker.png",
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+        });
 
-        // if (!truckMarker) {
-        //     truckMarker = L.marker([latSimple!, lngSimple!], {
-        //         icon: truckIcon,
-        //         rotationAngle: headingDeg,
-        //         rotationOrigin: "center center",
-        //     }).addTo(map.value!);
-        // } else {
-        //     truckMarker.setLatLng([latSimple!, lngSimple!]);
-        //     truckMarker.setRotationAngle(headingDeg);
-        // }
-
-        // console.log("Truck in CRS.Simple:", [latSimple!, lngSimple!]);
+        if (!truckMarker) {
+            truckMarker = L.marker(latLng, {
+                icon: truckIcon,
+                rotationAngle: headingDeg,
+                rotationOrigin: "center center",
+            }).addTo(map.value!);
+        } else {
+            truckMarker.setLatLng(latLng);
+            (truckMarker as any).setRotationAngle(headingDeg);
+        }
     };
 
     fetchTelemetry();
-    setInterval(fetchTelemetry, 1000);
+    setInterval(fetchTelemetry, 30000);
 
     console.log(telemetry.value);
+
+    const zoom = 9;
+    const mapPixel = map.value.project(
+        L.latLng(-106.1484375, 136.09765625),
+        zoom
+    );
+    console.log(mapPixel);
+
+    // map.value.on("click", (e: L.LeafletMouseEvent) => {
+    //     // Example: supply known game coordinates for the clicked location
+    //     const gameX = -6164.61328;
+    //     const gameZ = 2127.769;
+    //     const expectedPixel = map.project(e.latlng, Variables.TILESET_MAX_ZOOM);
+
+    //     const variableValues = {
+    //         scale: Variables.ETS_SCALE,
+    //         offsetX: Variables.ETS_OFFSET_X,
+    //         offsetY: Variables.ETS_OFFSET_Y,
+    //         invertY: Variables.ETS_INVERT_Y,
+    //         TILESET_MAX_ZOOM: Variables.TILESET_MAX_ZOOM,
+    //     };
+
+    //     const { newLatLng, delta, newOffsets } = calibrateMap(
+    //         map.value!,
+    //         gameX,
+    //         gameZ,
+    //         expectedPixel,
+    //         variableValues
+    //     );
+
+    //     console.log("delta applied:", delta);
+    //     console.log("new offsets:", newOffsets);
+
+    //     // Drop a marker so you can see calibration
+    //     L.marker(newLatLng).addTo(map.value!).bindPopup("Calibration test");
+    // });
 });
 </script>
 

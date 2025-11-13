@@ -17,12 +17,12 @@ export const useMap = () => {
         });
 
         const southWest = map.value.unproject(
-            [0, Variables.SOUTH_PIXELS],
+            [0, Variables.SOUTH_PIXELS_HEIGHT],
             Variables.TILESET_MAX_ZOOM
         );
 
         const northEast = map.value.unproject(
-            [Variables.EAST_PIXELS, 0],
+            [Variables.EAST_PIXELS_HEIGHT, 0],
             Variables.TILESET_MAX_ZOOM
         );
 
