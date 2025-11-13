@@ -1,16 +1,16 @@
 import type { Map } from "leaflet";
 import type L from "leaflet";
-import { ETS_CONFIG } from "~~/shared/variables";
+import * as Variable from "~~/shared/variables";
 
 export function ets2ToLeaflet(
     map: Map,
     gameX: number,
     gameZ: number,
     {
-        scale = ETS_CONFIG.SCALE,
-        offsetX = ETS_CONFIG.OFFSET_X,
-        offsetY = ETS_CONFIG.OFFSET_Y,
-        invertY = ETS_CONFIG.INVERT_Y,
+        scale = Variable.ETS_SCALE,
+        offsetX = Variable.ETS_OFFSET_X,
+        offsetY = Variable.ETS_OFFSET_Y,
+        invertY = Variable.ETS_INVERT_Y,
     }: {
         scale?: number;
         offsetX?: number;
@@ -23,9 +23,9 @@ export function ets2ToLeaflet(
 
     if (invertY) {
         const imageHeight =
-            ETS_CONFIG.EAST_PIXELS_HEIGHT ?? ETS_CONFIG.SOUTH_PIXELS_HEIGHT;
+            Variable.EAST_PIXELS_HEIGHT ?? Variable.SOUTH_PIXELS_HEIGHT;
         py = imageHeight - py;
     }
 
-    return (map as any).unproject([px, py], ETS_CONFIG.TILESET_MAX_ZOOM);
+    return (map as any).unproject([px, py], Variable.TILESET_MAX_ZOOM);
 }

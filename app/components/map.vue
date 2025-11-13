@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import { latLng } from "leaflet";
-import { calibrateMap } from "~/assets/utils/calibrationUtility";
 import { ets2ToLeaflet } from "~/assets/utils/mapUtility";
 import type { GeojsonData } from "~~/shared/types/GeoJsonTypes/GeojsonData";
 import type { TelemetryData } from "~~/shared/types/Telemetry/TelemetryData";
@@ -29,20 +27,16 @@ onMounted(async () => {
     const L = (await import("leaflet")).default;
     await import("leaflet-rotatedmarker");
 
-    // Initiating map with tiles and stuff from composable useMap()
     await initMap("map");
 
-    // Read Geojson data
     const res = await fetch("/roadnetwork.geojson");
     const data: GeojsonData = await res.json();
 
-    // Transofmr geojson to Graph for markers and routes
     const graph = new Graph();
     graph.buildGraph(data);
 
     if (!map.value) return;
 
-    // Handle clicks on map
     map.value.on("click", (e: L.LeafletMouseEvent) => {
         const p = map.value!.project(e.latlng, Variables.TILESET_MAX_ZOOM);
         console.log("map click latlng:", e.latlng, "pixel @maxZoom:", p);
@@ -115,14 +109,12 @@ onMounted(async () => {
         telemetry.value = res;
         console.log("Telemetry updated:", telemetry.value);
 
-        // inside fetchTelemetry (map.value exists)
         const truckData = telemetry.value!.truck;
         const gameX = truckData.placement.x;
         const gameZ = truckData.placement.z;
         const headingRad = truckData.placement.heading;
         const headingDeg = headingRad * (180 / Math.PI);
 
-        // get latLng using the map instance
         const latLng = ets2ToLeaflet(map.value!, gameX, gameZ, {
             scale: Variables.ETS_SCALE,
             offsetX: Variables.ETS_OFFSET_X,
@@ -132,7 +124,7 @@ onMounted(async () => {
 
         const truckIcon = L.icon({
             iconUrl: "/truckMarker.png",
-            iconSize: [40, 40],
+            iconSize: [30, 30],
             iconAnchor: [20, 20],
         });
 
@@ -159,35 +151,6 @@ onMounted(async () => {
         zoom
     );
     console.log(mapPixel);
-
-    // map.value.on("click", (e: L.LeafletMouseEvent) => {
-    //     // Example: supply known game coordinates for the clicked location
-    //     const gameX = -6164.61328;
-    //     const gameZ = 2127.769;
-    //     const expectedPixel = map.project(e.latlng, Variables.TILESET_MAX_ZOOM);
-
-    //     const variableValues = {
-    //         scale: Variables.ETS_SCALE,
-    //         offsetX: Variables.ETS_OFFSET_X,
-    //         offsetY: Variables.ETS_OFFSET_Y,
-    //         invertY: Variables.ETS_INVERT_Y,
-    //         TILESET_MAX_ZOOM: Variables.TILESET_MAX_ZOOM,
-    //     };
-
-    //     const { newLatLng, delta, newOffsets } = calibrateMap(
-    //         map.value!,
-    //         gameX,
-    //         gameZ,
-    //         expectedPixel,
-    //         variableValues
-    //     );
-
-    //     console.log("delta applied:", delta);
-    //     console.log("new offsets:", newOffsets);
-
-    //     // Drop a marker so you can see calibration
-    //     L.marker(newLatLng).addTo(map.value!).bindPopup("Calibration test");
-    // });
 });
 </script>
 
