@@ -7,6 +7,10 @@ export type Point = [number, number];
 export class Graph {
     private nodes: Map<string, Node> = new Map();
 
+    getNode(key: string): Node | undefined {
+        return this.nodes.get(key);
+    }
+
     private makekey(lng: number, lat: number) {
         return `${lng.toFixed(6)},${lat.toFixed(6)}`;
     }
@@ -51,5 +55,53 @@ export class Graph {
         });
 
         return nearestKey;
+    }
+
+    dijkstra(startKey: string, endKey: string) {
+        const distances: Record<string, number> = {};
+        const previous: Record<string, string | null> = {};
+        const queue = new Set(this.nodes.keys());
+
+        this.nodes.forEach((_, key) => {
+            distances[key] = Infinity;
+            previous[key] = null;
+        });
+
+        distances[startKey] = 0;
+
+        while (queue.size) {
+            let currentKey = "";
+            let minDistance = Infinity;
+            queue.forEach((key) => {
+                if (distances[key]! < minDistance) {
+                    minDistance = distances[key]!;
+                    currentKey = key;
+                }
+            });
+
+            if (!currentKey || currentKey === endKey) break;
+            queue.delete(currentKey);
+
+            const node = this.nodes.get(currentKey);
+            node?.edges.forEach((edge) => {
+                if (!this.nodes.has(edge.to)) return;
+                const alt = distances[currentKey]! + edge.weight;
+                if (alt < distances[edge.to]!) {
+                    distances[edge.to] = alt;
+                    previous[edge.to] = currentKey;
+                }
+            });
+        }
+
+        const path: Point[] = [];
+        let pathNodeKey = endKey;
+        while (pathNodeKey) {
+            const nodePath = this.nodes.get(pathNodeKey)!;
+            if (!nodePath) break;
+            path.unshift([nodePath.lat, nodePath.lng]);
+            pathNodeKey = previous[pathNodeKey]!;
+        }
+
+        return path;
     }
 }

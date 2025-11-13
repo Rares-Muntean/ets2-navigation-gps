@@ -1,13 +1,14 @@
-import { latLng, type Map } from "leaflet";
+import type { Map } from "leaflet";
 import * as Variables from "~~/shared/variables";
 
 export const useMap = () => {
     const map = ref<Map>();
-    const nuxtApp = useNuxtApp();
 
-    const initMap = (mapId: string) => {
-        map.value = nuxtApp.$leaflet.map(mapId, {
-            crs: nuxtApp.$leaflet.CRS.Simple,
+    const initMap = async (mapId: string) => {
+        const L = (await import("leaflet")).default;
+        await import("leaflet/dist/leaflet.css");
+        map.value = L.map(mapId, {
+            crs: L.CRS.Simple,
             minZoom: 3,
             maxZoom: Variables.TILESET_MAX_ZOOM,
             zoomSnap: 0.5,
@@ -24,27 +25,25 @@ export const useMap = () => {
             Variables.TILESET_MAX_ZOOM
         );
 
-        const center = latLng(
+        const center = L.latLng(
             -Variables.TILE_SIZE / 2,
             Variables.TILE_SIZE / 2
         );
 
         map.value.setView(center, 0);
 
-        const bounds = nuxtApp.$leaflet.latLngBounds(southWest, northEast);
+        const bounds = L.latLngBounds(southWest, northEast);
 
         map.value.setMaxBounds(bounds.pad(0.2));
 
-        nuxtApp.$leaflet
-            .tileLayer("./Tiles/{z}/{x}/{y}.png", {
-                tileSize: Variables.TILE_SIZE,
-                noWrap: true,
-                tms: true,
-                maxNativeZoom: Variables.TILESET_MAX_ZOOM,
-                maxZoom: Variables.TILESET_MAX_ZOOM,
-                bounds: bounds,
-            })
-            .addTo(map.value);
+        L.tileLayer("./Tiles/{z}/{x}/{y}.png", {
+            tileSize: Variables.TILE_SIZE,
+            noWrap: true,
+            tms: true,
+            maxNativeZoom: Variables.TILESET_MAX_ZOOM,
+            maxZoom: Variables.TILESET_MAX_ZOOM,
+            bounds: bounds,
+        }).addTo(map.value);
     };
 
     return { map, initMap };
