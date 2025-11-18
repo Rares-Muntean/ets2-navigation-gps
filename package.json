@@ -1,25 +1,39 @@
 {
-  "name": "euro-truck-nav",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
-  },
-  "dependencies": {
-    "@microsoft/signalr": "^9.0.6",
-    "leaflet": "^1.9.4",
-    "leaflet-rotatedmarker": "^0.2.0",
-    "nuxt": "^4.2.1",
-    "vue": "^3.5.24",
-    "vue-router": "^4.6.3"
-  },
-  "devDependencies": {
-    "@types/leaflet": "^1.9.21",
-    "@types/leaflet-rotatedmarker": "^0.2.6",
-    "sass-embedded": "^1.93.3"
-  }
+    "name": "euro-truck-nav",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "preinstall": "npx npm-force-resolutions",
+        "build": "nuxt build",
+        "dev": "nuxt dev",
+        "generate": "nuxt generate",
+        "preview": "nuxt preview",
+        "postinstall": "nuxt prepare"
+    },
+    "dependencies": {
+        "@microsoft/signalr": "^9.0.6",
+        "@turf/turf": "^7.2.0",
+        "leaflet": "^1.9.4",
+        "leaflet-rotatedmarker": "^0.2.0",
+        "maplibre-gl": "^5.12.0",
+        "nuxt": "^4.2.1",
+        "pmtiles": "^4.3.0",
+        "rbush": "^4.0.1",
+        "turf": "^3.0.14",
+        "vue": "^3.5.24",
+        "vue-router": "^4.6.3"
+    },
+    "devDependencies": {
+        "@types/leaflet": "^1.9.21",
+        "@types/leaflet-rotatedmarker": "^0.2.6",
+        "@types/node": "^24.10.1",
+        "@types/rbush": "^4.0.0",
+        "npm-force-resolutions": "^0.0.8",
+        "sass-embedded": "^1.93.3",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    },
+    "resolutions": {
+        "pmtiles": "4.3.0"
+    }
 }

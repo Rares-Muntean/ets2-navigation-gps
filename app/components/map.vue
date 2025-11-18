@@ -1,173 +1,110 @@
 <script lang="ts" setup>
-import { ets2ToLeaflet } from "~/assets/utils/mapUtility";
-import type { GeojsonData } from "~~/shared/types/GeoJsonTypes/GeojsonData";
-import type { TelemetryData } from "~~/shared/types/Telemetry/TelemetryData";
-import * as Variables from "~~/shared/variables";
+import type { Feature, FeatureCollection, LineString, Point } from "geojson";
+import type { Map } from "maplibre-gl";
+import { ref, onMounted } from "vue";
 
-const { map, initMap } = useMap();
-const telemetry = ref<TelemetryData | null>(null);
+interface Node {
+    id: number;
+    lng: number;
+    lat: number;
+}
 
-let truckMarker: L.Marker | null = null;
-let markers: L.Marker[] = [];
-let routes: L.Polyline[] = [];
+interface Edge {
+    from: number;
+    to: number;
+    weight: number;
+}
 
-const resetMarkers = (map: L.Map) => {
-    markers.forEach((marker) => map.removeLayer(marker));
-    routes.forEach((route) => map.removeLayer(route));
-
-    markers = [];
-    routes = [];
-};
-
-const clearMap = () => {
-    if (map.value) resetMarkers(map.value);
-};
+const mapEl = ref<HTMLElement | null>(null);
+let map: Map | null = null;
 
 onMounted(async () => {
-    const L = (await import("leaflet")).default;
-    await import("leaflet-rotatedmarker");
+    if (!mapEl.value) return;
 
-    await initMap("map");
+    map = await initializeMap(mapEl.value);
 
-    const res = await fetch("/roadnetwork.geojson");
-    const data: GeojsonData = await res.json();
+    map.on("load", async () => {
+        // Load nodes and edges JSON
+        const [nodes, edges]: [Node[], Edge[]] = await Promise.all([
+            fetch("/roadnetwork/nodes.json").then((res) => res.json()),
+            fetch("/roadnetwork/edges.json").then((res) => res.json()),
+        ]);
 
-    const graph = new Graph();
-    graph.buildGraph(data);
+        // Nodes as GeoJSON Points
+        const nodeFeatures: Feature<Point>[] = nodes.map((n) => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [n.lng, n.lat] },
+            properties: {},
+        }));
 
-    if (!map.value) return;
+        const nodesGeoJSON: FeatureCollection<Point> = {
+            type: "FeatureCollection",
+            features: nodeFeatures,
+        };
 
-    map.value.on("click", (e: L.LeafletMouseEvent) => {
-        const p = map.value!.project(e.latlng, Variables.TILESET_MAX_ZOOM);
-        console.log("map click latlng:", e.latlng, "pixel @maxZoom:", p);
+        // Edges as GeoJSON LineStrings
+        const edgeFeatures: Feature<LineString>[] = edges.map((e) => {
+            const from = nodes[e.from]!;
+            const to = nodes[e.to]!;
+            return {
+                type: "Feature",
+                geometry: {
+                    type: "LineString",
+                    coordinates: [
+                        [from.lng, from.lat],
+                        [to.lng, to.lat],
+                    ],
+                },
+                properties: {},
+            };
+        });
 
-        const clickedKey: string | null = graph.snapToGraph(
-            e.latlng.lat,
-            e.latlng.lng
+        const edgesGeoJSON: FeatureCollection<LineString> = {
+            type: "FeatureCollection",
+            features: edgeFeatures,
+        };
+
+        // Add sources to map
+        map?.addSource("graph-nodes", { type: "geojson", data: nodesGeoJSON });
+        map?.addSource("graph-edges", { type: "geojson", data: edgesGeoJSON });
+
+        // Render nodes
+        map?.addLayer({
+            id: "graph-nodes-layer",
+            type: "circle",
+            source: "graph-nodes",
+            paint: {
+                "circle-radius": 2,
+                "circle-color": "blue",
+                "circle-opacity": 0.5,
+            },
+        });
+
+        // Render edges
+        map?.addLayer({
+            id: "graph-edges-layer",
+            type: "line",
+            source: "graph-edges",
+            paint: {
+                "line-color": "#FF0000",
+                "line-width": 1,
+                "line-opacity": 0.6,
+            },
+        });
+
+        map?.moveLayer("graph-edges-layer");
+
+        console.log(
+            "Graph rendered:",
+            nodes.length,
+            "nodes,",
+            edges.length,
+            "edges"
         );
-        console.log(e.latlng.lat, e.latlng.lng);
-        if (!clickedKey) return;
-
-        const node = graph.getNode(clickedKey);
-        if (!node) return;
-
-        const marker = L.marker([node.lat, node.lng]).addTo(map.value!);
-        markers.push(marker);
-
-        marker.on("click", () => {
-            map.value!.removeLayer(marker);
-            const index = markers.indexOf(marker);
-            markers.splice(index, 1);
-
-            routes.forEach((r) => map.value!.removeLayer(r));
-            routes.length = 0;
-
-            for (let i = 1; i < markers.length; i++) {
-                const prev = markers[i - 1];
-                const curr = markers[i];
-                const prevKey = graph.snapToGraph(
-                    prev!.getLatLng().lat,
-                    prev!.getLatLng().lng
-                );
-                const currKey = graph.snapToGraph(
-                    curr!.getLatLng().lat,
-                    curr!.getLatLng().lng
-                );
-                if (prevKey && currKey) {
-                    const coords = graph.dijkstra(prevKey, currKey);
-                    const polyline = L.polyline(coords, {
-                        color: "cyan",
-                        weight: 3,
-                    }).addTo(map.value!);
-                    routes.push(polyline);
-                }
-            }
-        });
-
-        if (markers?.length && markers.length > 1) {
-            const lastKey = graph.snapToGraph(
-                markers[markers.length - 2]!.getLatLng().lat,
-                markers[markers.length - 2]!.getLatLng().lng
-            );
-            if (lastKey) {
-                const routeCoords: [number, number][] = graph.dijkstra(
-                    lastKey,
-                    clickedKey
-                );
-                const polyline = L.polyline(routeCoords, {
-                    color: "cyan",
-                    weight: 3,
-                }).addTo(map.value!);
-                routes!.push(polyline);
-            }
-        }
     });
-
-    // Fetch from api/telemetry
-    const fetchTelemetry = async () => {
-        const res = await $fetch<TelemetryData>("/api/telemetry");
-        telemetry.value = res;
-        console.log("Telemetry updated:", telemetry.value);
-
-        const truckData = telemetry.value!.truck;
-        const gameX = truckData.placement.x;
-        const gameZ = truckData.placement.z;
-        const headingRad = truckData.placement.heading;
-        const headingDeg = headingRad * (180 / Math.PI);
-
-        const latLng = ets2ToLeaflet(map.value!, gameX, gameZ, {
-            scale: Variables.ETS_SCALE,
-            offsetX: Variables.ETS_OFFSET_X,
-            offsetY: Variables.ETS_OFFSET_Y,
-            invertY: Variables.ETS_INVERT_Y,
-        });
-
-        const truckIcon = L.icon({
-            iconUrl: "/truckMarker.png",
-            iconSize: [30, 30],
-            iconAnchor: [20, 20],
-        });
-
-        if (!truckMarker) {
-            truckMarker = L.marker(latLng, {
-                icon: truckIcon,
-                rotationAngle: headingDeg,
-                rotationOrigin: "center center",
-            }).addTo(map.value!);
-        } else {
-            truckMarker.setLatLng(latLng);
-            (truckMarker as any).setRotationAngle(headingDeg);
-        }
-    };
-
-    fetchTelemetry();
-    setInterval(fetchTelemetry, 30000);
-
-    console.log(telemetry.value);
-
-    const zoom = 9;
-    const mapPixel = map.value.project(
-        L.latLng(-106.1484375, 136.09765625),
-        zoom
-    );
-    console.log(mapPixel);
 });
 </script>
 
 <template>
-    <div id="map-wrapper">
-        <div id="map"></div>
-        <div id="button-wrapper">
-            <input
-                type="button"
-                value="Clear Markers"
-                class="bottom-btn btn"
-                @click.stop="clearMap"
-            />
-        </div>
-    </div>
+    <div ref="mapEl" style="width: 100%; height: 100vh"></div>
 </template>
-
-<style scoped lang="scss">
-@use "~/assets/scss/scoped/map";
-</style>
