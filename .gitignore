@@ -23,5 +23,7 @@ logs
 .env.*
 !.env.example
 public/Tiles
-public/roadnetwork
+public/roadnetwork/edges.json
+public/roadnetwork/nodes.json
+public/roadnetwork/meta.json
 public/geojson/roadnetwork.geojson
