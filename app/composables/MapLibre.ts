@@ -53,7 +53,7 @@ export async function initializeMap(
         center: [10, 50],
         zoom: 4,
         minZoom: 5,
-        maxZoom: 11,
+        // maxZoom: 11,
     });
 
     map.on("load", async () => {
@@ -272,182 +272,20 @@ export async function initializeMap(
             },
         });
 
-        map.addSource("route", {
-            type: "geojson",
-            data: { type: "FeatureCollection", features: [] },
-        });
+        // map.addSource("route", {
+        //     type: "geojson",
+        //     data: { type: "FeatureCollection", features: [] },
+        // });
 
-        map.addLayer({
-            id: "route-layer",
-            type: "line",
-            source: "route",
-            paint: {
-                "line-color": "blue",
-                "line-width": 10,
-            },
-        });
-
-        const { nodes, edges } = await loadGraph();
-
-        const adj: Map<
-            number,
-            { to: number; weight: number; geometry: Coord[] }[]
-        > = new Map();
-        edges.forEach((e) => {
-            if (!adj.has(e.from)) adj.set(e.from, []);
-            // Add 'geometry' here
-            adj.get(e.from)!.push({
-                to: e.to,
-                weight: e.weight,
-                geometry: e.geometry!, // <--- Pass this through
-            });
-        });
-
-        let startNode: Node | null = null;
-        let endNode: Node | null = null;
-
-        function findNearestNode(coord: Coord): Node {
-            let best: Node = nodes[0]!;
-            let bestDist = Infinity;
-            for (const n of nodes) {
-                const d = haversine(coord, [n.lng, n.lat]);
-                if (d < bestDist) {
-                    bestDist = d;
-                    best = n;
-                }
-            }
-            return best;
-        }
-
-        function dijkstra(
-            start: number,
-            end: number,
-            adj: Map<number, { to: number; weight: number }[]>
-        ): number[] | null {
-            const dist = new Map<number, number>();
-            const prev = new Map<number, number | null>();
-            const visited = new Set<number>();
-            const pq: { node: number; cost: number }[] = [];
-
-            dist.set(start, 0);
-            pq.push({ node: start, cost: 0 });
-
-            while (pq.length > 0) {
-                // Get node with smallest cost
-                pq.sort((a, b) => a.cost - b.cost);
-                const { node: u } = pq.shift()!;
-
-                if (visited.has(u)) continue;
-                visited.add(u);
-
-                if (u === end) break;
-
-                const neighbors = adj.get(u) || [];
-                for (const { to: v, weight } of neighbors) {
-                    if (visited.has(v)) continue;
-                    const alt = (dist.get(u) ?? Infinity) + weight;
-                    if (alt < (dist.get(v) ?? Infinity)) {
-                        dist.set(v, alt);
-                        prev.set(v, u);
-                        pq.push({ node: v, cost: alt });
-                    }
-                }
-            }
-
-            // Reconstruct path
-            const path: number[] = [];
-            let u: number | null | undefined = end;
-            while (u !== null && u !== undefined) {
-                path.unshift(u);
-                u = prev.get(u) ?? null;
-            }
-
-            if (path[0] !== start) return null; // no path
-            return path;
-        }
-
-        map.on("click", (e) => {
-            const clickCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
-            const nearest = findNearestNode(clickCoord);
-
-            if (!startNode) {
-                startNode = nearest;
-                console.log("Start node selected:", nearest.id);
-            } else {
-                endNode = nearest;
-                console.log("End node selected:", nearest.id);
-
-                // 1. Get the list of Node IDs from Dijkstra
-                const pathIds = dijkstra(startNode.id, endNode.id, adj);
-
-                if (pathIds && pathIds.length > 0) {
-                    const detailedCoordinates: number[][] = [];
-
-                    // Helper to find the edge object between two nodes
-                    function getEdge(u: number, v: number) {
-                        // You need access to your 'edges' array here
-                        // Or a lookup map like: edgeMap.get(`${u}-${v}`)
-                        return edges.find((e) => e.from === u && e.to === v);
-                    }
-
-                    for (let i = 0; i < pathIds.length - 1; i++) {
-                        const u = pathIds[i]!;
-                        const v = pathIds[i + 1]!;
-
-                        const edge = getEdge(u, v);
-
-                        if (edge && edge.geometry) {
-                            // 1. If we have previous coordinates, check for a gap
-                            if (detailedCoordinates.length > 0) {
-                                const lastPoint =
-                                    detailedCoordinates[
-                                        detailedCoordinates.length - 1
-                                    ]!;
-                                const nextPoint = edge.geometry[0]!;
-
-                                // Check distance (optional, but good for debugging)
-                                // If distance is > 0, we simply draw a line between them.
-                                // This "Stitches" the prefab gap.
-                                if (
-                                    lastPoint[0] !== nextPoint[0] ||
-                                    lastPoint[1] !== nextPoint[1]
-                                ) {
-                                    // The gap exists here! The line will be drawn automatically
-                                    // because we are adding points to the same LineString array.
-                                }
-                            }
-
-                            // 2. Add the road geometry
-                            detailedCoordinates.push(...edge.geometry);
-                        } else {
-                            // Fallback for edges without geometry (straight line)
-                            const n1 = nodes[u]!;
-                            const n2 = nodes[v]!;
-                            detailedCoordinates.push([n1.lng, n1.lat]);
-                            detailedCoordinates.push([n2.lng, n2.lat]);
-                        }
-                    }
-
-                    // Draw the stitched route
-                    const routeGeojson = {
-                        type: "FeatureCollection",
-                        features: [
-                            {
-                                type: "Feature",
-                                geometry: {
-                                    type: "LineString",
-                                    coordinates: detailedCoordinates,
-                                },
-                                properties: {},
-                            },
-                        ],
-                    };
-
-                    // Update map source...
-                    (map.getSource("route") as any).setData(routeGeojson);
-                }
-            }
-        });
+        // map.addLayer({
+        //     id: "route-layer",
+        //     type: "line",
+        //     source: "route",
+        //     paint: {
+        //         "line-color": "blue",
+        //         "line-width": 10,
+        //     },
+        // });
 
         map.addControl(new maplibregl.NavigationControl());
         map.addControl(new maplibregl.FullscreenControl());

@@ -16,7 +16,13 @@
  *   * Builds a graph from a geojson containing LineStrings.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import {
+    createWriteStream,
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    writeFileSync,
+} from "fs";
 import RBush from "rbush";
 import * as turf from "@turf/turf";
 import path from "path";
@@ -93,9 +99,7 @@ function storeFeaturePoints(features: InputFeature[]) {
         const coords = features[i]?.geometry.coordinates;
         if (coords?.length) {
             for (let j = 0; j < coords.length; j++) {
-                if (j % 2 != 0) {
-                    splitPointsToMap.get(i)?.add(coordKey(coords[j]!));
-                }
+                splitPointsToMap.get(i)?.add(coordKey(coords[j]!));
             }
         }
     }
@@ -315,7 +319,7 @@ function createLinePointsArray(
 ) {
     let line = turf.lineString(feature?.geometry.coordinates);
     line = turf.simplify(line, {
-        tolerance: 0.0001,
+        tolerance: 0.01,
         highQuality: true,
     });
 
@@ -518,12 +522,27 @@ function saveFilesToDisk(
     );
 }
 
-function saveGraphAsGeoJSON(outDir: string, nodes: Node[], edges: Edge[]) {
-    const features: any[] = [];
+async function saveGraphAsGeoJSON(
+    outDir: string,
+    nodes: Node[],
+    edges: Edge[]
+) {
+    if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
-    // Add nodes as points
+    const filePath = path.join(outDir, "graph_combined.geojson");
+    console.log(`Streaming GeoJSON to ${filePath}...`);
+
+    const stream = createWriteStream(filePath, { encoding: "utf8" });
+
+    // Write Header
+    stream.write('{\n"type": "FeatureCollection",\n"features": [\n');
+
+    let isFirst = true;
+
+    // 1. Write Nodes
     for (const node of nodes) {
-        features.push({
+        if (!isFirst) stream.write(",\n");
+        const feature = {
             type: "Feature",
             geometry: {
                 type: "Point",
@@ -533,21 +552,26 @@ function saveGraphAsGeoJSON(outDir: string, nodes: Node[], edges: Edge[]) {
                 id: node.id,
                 type: "node",
             },
-        });
+        };
+        stream.write(JSON.stringify(feature));
+        isFirst = false;
     }
 
-    // Add edges as lines
+    // 2. Write Edges
     for (const edge of edges) {
         const fromNode = nodes[edge.from];
         const toNode = nodes[edge.to];
 
-        features.push({
+        if (!fromNode || !toNode) continue;
+
+        if (!isFirst) stream.write(",\n");
+        const feature = {
             type: "Feature",
             geometry: {
                 type: "LineString",
                 coordinates: [
-                    [fromNode!.lng, fromNode!.lat],
-                    [toNode!.lng, toNode!.lat],
+                    [fromNode.lng, fromNode.lat],
+                    [toNode.lng, toNode.lat],
                 ],
             },
             properties: {
@@ -556,21 +580,16 @@ function saveGraphAsGeoJSON(outDir: string, nodes: Node[], edges: Edge[]) {
                 roadType: edge.properties?.roadType ?? null,
                 type: "edge",
             },
-        });
+        };
+        stream.write(JSON.stringify(feature));
+        isFirst = false;
     }
 
-    const geojson = {
-        type: "FeatureCollection",
-        features,
-    };
+    // Write Footer
+    stream.write("\n]\n}");
+    stream.end();
 
-    if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
-    writeFileSync(
-        path.join(outDir, "graph_combined.geojson"),
-        JSON.stringify(geojson, null, 2)
-    );
-
-    console.log("Combined GeoJSON saved:", features.length, "features");
+    console.log("Combined GeoJSON saved via stream.");
 }
 
 //// BUILD GRAPH
@@ -581,34 +600,19 @@ function buildGraph(inputDir: string, outDir: string) {
     const geo = readGeojson(inputDir);
     let features = geo.features;
 
-    const freewayFeatures = features.filter(
-        (f) => f.properties.roadType === "freeway"
-    );
+    features = snapEndpoints(features, 100);
 
-    const dividedFeatures = features.filter(
-        (f) => f.properties.roadType === "divided"
-    );
-
-    const localFeatures = features.filter(
-        (f) => f.properties.roadType === "local"
-    );
-
-    const snappedFeatures = snapEndpoints(freewayFeatures, 0.0001);
-    const snappedDivided = snapEndpoints(dividedFeatures, 0.0001);
-    const snappedLocal = snapEndpoints(localFeatures, 0.00001);
-
-    features = [...snappedDivided, ...snappedFeatures, ...snappedLocal];
     console.log("Building RBush tree bounding box for features...");
     const { tree, bboxes } = createBbox(features);
 
     console.log("Detecting intersection points between bbox neighbors...");
     splitPointsToMap = storeFeaturePoints(features);
-    splitPointsToMap = checkIntersectionsAndAdd(
-        features,
-        bboxes,
-        tree,
-        splitPointsToMap
-    );
+    // splitPointsToMap = checkIntersectionsAndAdd(
+    //     features,
+    //     bboxes,
+    //     tree,
+    //     splitPointsToMap
+    // );
 
     console.log("Collected intersection points. Now building nodes & edges...");
     const { nodes, edges } = createNodesAndEdges(features, splitPointsToMap);
