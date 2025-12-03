@@ -1,4 +1,4 @@
-import type { Node, Edge, Coord } from "~~/shared/types/geojson/geojson";
+import type { Node, Edge, Coord } from "~~/shared/types/";
 
 export async function loadGraph(): Promise<{ nodes: Node[]; edges: Edge[] }> {
     const [nodes, edges] = await Promise.all([

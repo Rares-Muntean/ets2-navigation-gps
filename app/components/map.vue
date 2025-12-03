@@ -5,6 +5,8 @@ import maplibregl from "maplibre-gl"; // Ensure this is imported for Types/Marke
 import { haversine } from "~/assets/utils/helpers";
 import { loadGraph } from "~/assets/utils/clientGraph";
 import RBush from "rbush";
+import { AppSettings } from "~~/shared/variables/appSettings";
+import { distance, lineString, point, simplify } from "@turf/turf";
 
 //// INTERFACE FOR RBUSH
 interface NodeIndexItem {
@@ -36,6 +38,7 @@ const adjacency = new Map<
     { to: number; weight: number; roadType: string }[]
 >();
 const nodeCoords = new Map<number, [number, number]>();
+const currentZoom = ref(0);
 
 onMounted(async () => {
     if (!mapEl.value) return;
@@ -43,6 +46,15 @@ onMounted(async () => {
     try {
         map.value = await initializeMap(mapEl.value);
         if (!map.value) return;
+
+        currentZoom.value = map.value.getZoom();
+
+        map.value.on("zoom", () => {
+            if (map.value) {
+                currentZoom.value = map.value.getZoom();
+            }
+        });
+
         map.value.on("load", visualizeGraph);
         map.value.on("click", handleMapClick);
     } catch (e) {
@@ -220,8 +232,8 @@ function calculateRoute(
                 }
 
                 //// 2. GLOBAL SAFETY
-                if (absAngle > 110) {
-                    stepCost += 1000.0;
+                if (absAngle > 115) {
+                    stepCost += 1000000.0;
                 }
 
                 //// 3. WRONG WAY SHORTCUTS
@@ -271,10 +283,62 @@ function calculateRoute(
     return { path, endId: foundEndId };
 }
 
+// REMOVING ZIG ZAG LINES
+function mergeClosePoints(
+    coords: [number, number][],
+    minDistanceMeters: number = 5
+): [number, number][] {
+    if (coords.length < 2) return coords;
+
+    const result: [number, number][] = [];
+    let i = 0;
+
+    while (i < coords.length) {
+        const current = coords[i]!;
+        if (i === coords.length - 1) {
+            result.push(current);
+            break;
+        }
+
+        const next = coords[i + 1]!;
+
+        const dist = distance(point(current), point(next), { units: "meters" });
+
+        if (dist < minDistanceMeters) {
+            const midPoint: [number, number] = [
+                (current[0] + next[0]) / 2,
+                (current[1] + next[1]) / 2,
+            ];
+            result.push(midPoint);
+
+            i += 2;
+        } else {
+            result.push(current);
+            i++;
+        }
+    }
+
+    if (result.length < 2) {
+        result.push(coords[coords.length - 1]!);
+    }
+
+    return result;
+}
+
 //// DRAWING THE ROUTE
 function drawRoute(coords: [number, number][]) {
     if (!map.value) return;
 
+    let cleanCoords = mergeClosePoints(coords, 600);
+
+    const line = lineString(cleanCoords);
+
+    const simplifiedLine = simplify(line, {
+        tolerance: 0.0005,
+        highQuality: true,
+    });
+
+    // STEP 4: Draw
     const source = map.value.getSource(
         "debug-route"
     ) as maplibregl.GeoJSONSource;
@@ -285,10 +349,7 @@ function drawRoute(coords: [number, number][]) {
                 {
                     type: "Feature",
                     properties: {},
-                    geometry: {
-                        type: "LineString",
-                        coordinates: coords,
-                    },
+                    geometry: simplifiedLine.geometry,
                 },
             ],
         });
@@ -398,9 +459,25 @@ async function visualizeGraph() {
                 source: "debug-route",
                 layout: { "line-join": "round", "line-cap": "round" },
                 paint: {
-                    "line-color": "#FFD700",
-                    "line-width": 6,
-                    "line-opacity": 0.9,
+                    "line-color": AppSettings.theme.defaultColor,
+                    "line-width": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        //
+                        10,
+                        8,
+                        //
+                        10.2,
+                        9,
+                        //
+                        10.5,
+                        12,
+                        //
+                        11.5,
+                        19.5,
+                        //
+                    ],
                 },
             });
         }
@@ -454,6 +531,7 @@ async function visualizeGraph() {
 
 <template>
     <div ref="mapEl" class="map-container"></div>
+    <div class="zoom-display">Z: {{ currentZoom.toFixed(2) }}</div>
     <!-- <div v-else>LODING</div> -->
 </template>
 

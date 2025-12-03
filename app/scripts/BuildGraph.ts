@@ -583,6 +583,10 @@ function createNodesAndEdges(
         const isFreeway =
             props.roadType === "freeway" || props.roadType === "divided";
         const inferredDir = directionInference[i];
+        const isManualFix =
+            props.type === null &&
+            props.leftLanes === null &&
+            props.rightLanes === null;
 
         // --- SEGMENT LOOP ---
         for (let point = 0; point < cleaned.length - 1; point++) {
@@ -603,9 +607,10 @@ function createNodesAndEdges(
             const STRICT_BLOCK = Infinity;
 
             // === LOGIC TIER ===
-
             if (isRoundabout) {
                 backwardWeight = STRICT_BLOCK;
+            } else if (isManualFix) {
+                // backwardWeight = STRICT_BLOCK;
             } else if (isFreeway) {
                 const laneSaysForward = (props.rightLanes || 0) > 0;
                 const laneSaysBackward = (props.leftLanes || 0) > 0;
@@ -762,9 +767,7 @@ function buildGraph(inputDir: string, outDir: string) {
         .map((f, index) => {
             if (!f.properties) f.properties = {};
 
-            if (!f.properties.id) f.properties.id = `manual_fix_${index}`;
-
-            if (!f.properties.roadType) f.properties.roadType = "road";
+            if (!f.properties.roadType) f.properties.roadType = "local";
 
             return f;
         });

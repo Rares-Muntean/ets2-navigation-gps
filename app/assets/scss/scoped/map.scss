@@ -5,6 +5,21 @@
     background-color: #272d39;
 }
 
+.zoom-display {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #00ff00; /* Hacker Green */
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 100; /* Above the map */
+    border: 1px solid #555;
+}
+
 // .bottom-btn {
 //     z-index: 1000;
 //     position: absolute;

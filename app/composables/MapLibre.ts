@@ -1,15 +1,18 @@
 import type { Map as MapLibreGl, StyleSpecification } from "maplibre-gl";
+import { AppSettings } from "../../shared/variables/appSettings";
 
 export async function initializeMap(
     container: HTMLElement
 ): Promise<MapLibreGl> {
+    const appTheme = AppSettings.theme;
+
     const maplibregl = (await import("maplibre-gl")).default;
     const { Protocol, PMTiles } = await import("pmtiles");
 
     const protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    const PMTILES_URL = "/map-data/tiles/ets2.pmtiles";
+    const PMTILES_URL = "/map-data/tiles/roads.pmtiles";
     const pmtiles = new PMTiles(PMTILES_URL);
     protocol.add(pmtiles);
 
@@ -48,9 +51,10 @@ export async function initializeMap(
         container,
         style,
         center: [10, 50],
-        zoom: 4,
+        zoom: 6,
         minZoom: 5,
-        // maxZoom: 11,
+        maxZoom: 11.5,
+        maxPitch: 55,
     });
 
     map.on("load", async () => {
@@ -74,6 +78,18 @@ export async function initializeMap(
         map.addSource("ets2-villages", {
             type: "geojson",
             data: "map-data/ets2-villages.geojson",
+        });
+
+        // CITI NAMES
+        map.addSource("ets2-cities", {
+            type: "geojson",
+            data: "/map-data/ets2-cities.geojson",
+        });
+
+        // MAP AREAS
+        map.addSource("ets2-mapareas", {
+            type: "geojson",
+            data: "/map-data/ets2-mapareas.geojson",
         });
 
         // COUNTRY DELIMITATION
@@ -117,53 +133,56 @@ export async function initializeMap(
             },
         });
 
-        // ROAD CASING (dark outline for depth)
-        map.addLayer({
-            id: "ets2-road-casing",
-            type: "line",
-            source: "ets2",
-            "source-layer": "ets2",
-            filter: ["==", ["get", "type"], "road"],
-            paint: {
-                "line-color": "#1a1f2a",
-                "line-width": [
-                    "interpolate",
-                    ["linear"],
-                    ["zoom"],
-                    5,
-                    1,
-                    8,
-                    3,
-                    12,
-                    10,
-                    16,
-                    16,
-                ],
-                "line-opacity": 0.9,
-            },
-        });
-
         // THICK ROADS
         map.addLayer({
             id: "ets2-roads",
             type: "line",
             source: "ets2",
             "source-layer": "ets2",
-            filter: ["==", ["get", "type"], "road"],
+            layout: {
+                "line-join": "round",
+                "line-cap": "round",
+            },
             paint: {
                 "line-color": "#4a5f7a",
                 "line-width": [
                     "interpolate",
                     ["linear"],
                     ["zoom"],
+                    //
                     5,
-                    0.5, //
+                    0.5,
+                    //
                     8,
-                    2, //
+                    3,
+                    //
+                    9,
+                    6,
+                    //
+                    9.3,
+                    6,
+                    //
+                    9.5,
+                    6,
+                    //
+                    9.6,
+                    6,
+                    //
                     10,
-                    7, //
-                    14,
-                    30, //
+                    8,
+                    //
+                    10.2,
+                    9,
+                    //
+                    10.5,
+                    12,
+                    //
+                    11,
+                    15,
+                    //
+                    11.5,
+                    19,
+                    //
                 ],
                 "line-opacity": 1,
             },
@@ -174,9 +193,7 @@ export async function initializeMap(
             {
                 id: "maparea-zones",
                 type: "fill",
-                source: "ets2",
-                "source-layer": "ets2",
-                filter: ["==", ["get", "type"], "mapArea"],
+                source: "ets2-mapareas",
                 paint: {
                     "fill-color": [
                         "match",
@@ -200,16 +217,30 @@ export async function initializeMap(
         );
 
         // DISPLAYING BUILDINGS
-        map.addLayer({
-            id: "footprints-fill",
-            type: "fill",
-            source: "ets2-footprints",
-            "source-layer": "footprints",
-            paint: {
-                "fill-color": "#2e3f52",
-                "fill-opacity": 0.4,
+        map.addLayer(
+            {
+                id: "footprints-fill",
+                type: "fill",
+                source: "ets2-footprints",
+                "source-layer": "footprints",
+                paint: {
+                    "fill-color": "#263444",
+                    // Interpolate Opacity based on Zoom
+                    "fill-opacity": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        6,
+                        0.0,
+                        9,
+                        0.5,
+                        10,
+                        0.9,
+                    ],
+                },
             },
-        });
+            "ets2-lines"
+        );
 
         // DISPLAYING VILLAGE NAMES
         map.addLayer({
@@ -226,45 +257,96 @@ export async function initializeMap(
             paint: {
                 "text-color": "#ffffff",
             },
-            minzoom: 7,
+            minzoom: 7.9,
         });
 
         // DISPLAYING CITY NAMES
         map.addLayer({
             id: "city-labels",
             type: "symbol",
-            source: "ets2",
-            "source-layer": "ets2",
-            filter: ["==", ["get", "type"], "city"],
+            source: "ets2-cities",
             layout: {
                 "text-field": ["get", "name"],
                 "text-font": ["Quicksand medium"],
                 "text-size": 15,
-                "text-anchor": "center",
+                "text-anchor": "bottom",
+                "text-offset": [0, -0.3],
             },
             paint: {
                 "text-color": "#ffffff",
             },
-            minzoom: 6,
+            minzoom: 5.5,
         });
+
+        // DISPLAYING CITY DOTS
+        map.addLayer(
+            {
+                id: "city-points",
+                type: "circle",
+                source: "ets2-cities",
+                minzoom: 5.5,
+                maxzoom: 6.7,
+                paint: {
+                    "circle-color": appTheme.defaultColor,
+
+                    "circle-radius": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        5,
+                        4, // Smaller at low zoom
+                        10,
+                        7, // Larger at high zoom
+                    ],
+
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": "#222",
+                },
+            },
+            "city-labels"
+        );
 
         // DISPLAYING CAPITAL NAMES
         map.addLayer({
             id: "capital-major-labels",
             type: "symbol",
             filter: ["==", ["get", "capital"], 2],
-            source: "ets2",
-            "source-layer": "ets2",
+            source: "ets2-cities",
             layout: {
                 "text-field": ["get", "name"],
                 "text-size": 18,
                 "text-font": ["Quicksand medium"],
-                "text-anchor": "center",
+                "text-anchor": "bottom",
+                "text-offset": [0, -0.3],
             },
             paint: {
                 "text-color": "#ffffff",
             },
-            minzoom: 4,
+            minzoom: 5,
+        });
+
+        // DISPLAYING CAPITAL DOTS
+        map.addLayer({
+            id: "capital-points",
+            type: "circle",
+            source: "ets2-cities",
+            minzoom: 5,
+            filter: ["==", ["get", "capital"], 2], // Only Capitals
+            paint: {
+                "circle-color": appTheme.defaultColor,
+                "circle-radius": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    5,
+                    4, // Make capitals slightly bigger?
+                    10,
+                    8,
+                ],
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#000000",
+                "circle-opacity": 0.9,
+            },
         });
 
         // DISPLAYING COUNTRY DELIMITATIONS
