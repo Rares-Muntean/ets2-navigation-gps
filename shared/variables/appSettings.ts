@@ -7,7 +7,7 @@
 export const AppSettings = {
     appName: "Euro Truck Nav",
     theme: {
-        defaultColor: "#60a5fa",
+        defaultColor: "#7c3aed",
         darkMode: true,
     },
 };

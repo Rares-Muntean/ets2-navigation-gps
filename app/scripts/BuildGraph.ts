@@ -159,136 +159,6 @@ function storeFeaturePoints(features: InputFeature[]) {
     return splitPointsToMap;
 }
 
-function snapEndpoints(
-    features: InputFeature[],
-    toleranceMeters: number = 1.0
-): InputFeature[] {
-    console.log(
-        `Snapping endpoints with ${toleranceMeters}m tolerance (rbush)...`
-    );
-
-    const metersToDeg = (m: number) => m / 111320;
-    const degThreshold = metersToDeg(toleranceMeters);
-
-    type EPItem = {
-        minX: number;
-        minY: number;
-        maxX: number;
-        maxY: number;
-        id: number;
-        featureIdx: number;
-        isStart: boolean;
-        coord: Coord;
-    };
-
-    const tree = new RBush<EPItem>();
-
-    const endpoints: EPItem[] = [];
-    let eid = 0;
-    for (let i = 0; i < features.length; i++) {
-        const coords = features[i]!.geometry.coordinates;
-        if (!coords || coords.length < 2) continue;
-
-        const first: Coord = coords[0]!;
-        const last: Coord = coords[coords.length - 1]!;
-
-        const e1: EPItem = {
-            minX: first[0],
-            minY: first[1],
-            maxX: first[0],
-            maxY: first[1],
-            id: eid++,
-            featureIdx: i,
-            isStart: true,
-            coord: first,
-        };
-        const e2: EPItem = {
-            minX: last[0],
-            minY: last[1],
-            maxX: last[0],
-            maxY: last[1],
-            id: eid++,
-            featureIdx: i,
-            isStart: false,
-            coord: last,
-        };
-
-        endpoints.push(e1, e2);
-        tree.insert(e1);
-        tree.insert(e2);
-    }
-
-    console.log(`Indexed ${endpoints.length} endpoints in rbush`);
-
-    const visited = new Set<number>();
-    const snappingMap = new Map<string, Coord>();
-
-    for (let i = 0; i < endpoints.length; i++) {
-        const ep = endpoints[i]!;
-        if (visited.has(ep.id)) continue;
-
-        const qBox = {
-            minX: ep.coord[0] - degThreshold,
-            minY: ep.coord[1] - degThreshold,
-            maxX: ep.coord[0] + degThreshold,
-            maxY: ep.coord[1] + degThreshold,
-        };
-
-        const candidates = tree.search(qBox) as EPItem[];
-
-        const cluster: EPItem[] = [];
-        for (const c of candidates) {
-            if (visited.has(c.id)) continue;
-            const d = haversine(ep.coord, c.coord);
-            if (d <= toleranceMeters) {
-                cluster.push(c);
-                visited.add(c.id);
-            }
-        }
-
-        if (cluster.length > 1) {
-            let sumLng = 0;
-            let sumLat = 0;
-            for (const m of cluster) {
-                sumLng += m.coord[0];
-                sumLat += m.coord[1];
-            }
-            const centroid: Coord = [
-                sumLng / cluster.length,
-                sumLat / cluster.length,
-            ];
-
-            const snapped: Coord = [
-                Number(centroid[0].toFixed(COORD_MAX_DECIMALS)),
-                Number(centroid[1].toFixed(COORD_MAX_DECIMALS)),
-            ];
-
-            for (const mem of cluster) {
-                snappingMap.set(coordKey(mem.coord), snapped);
-            }
-        }
-    }
-
-    const out = features.map((feature) => {
-        const coords = feature.geometry.coordinates;
-        const newCoords = coords.map((coord) => {
-            const key = coordKey(coord);
-            const mapped = snappingMap.get(key);
-            return mapped ? mapped : coord;
-        });
-
-        return {
-            ...feature,
-            geometry: {
-                ...feature.geometry,
-                coordinates: newCoords,
-            },
-        };
-    });
-
-    return out;
-}
-
 /* Creates a line from features that gets simplified ->
 -> from all the points that are `splitting` the line we create an array ->
 -> we create another array containing the point coords and the distance from the coords[0] (start) of the line ->
@@ -603,7 +473,7 @@ function createNodesAndEdges(
             let forwardWeight = distance;
             let backwardWeight = distance;
 
-            const PENALTY_FLAT = 500;
+            const PENALTY_FLAT = 300;
             const STRICT_BLOCK = Infinity;
 
             // === LOGIC TIER ===
@@ -771,8 +641,6 @@ function buildGraph(inputDir: string, outDir: string) {
 
             return f;
         });
-
-    features = snapEndpoints(features, 0.1);
 
     console.log("Detecting intersection points between bbox neighbors...");
     splitPointsToMap = storeFeaturePoints(features);

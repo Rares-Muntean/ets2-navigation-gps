@@ -7,6 +7,7 @@ import { loadGraph } from "~/assets/utils/clientGraph";
 import RBush from "rbush";
 import { AppSettings } from "~~/shared/variables/appSettings";
 import { distance, lineString, point, simplify } from "@turf/turf";
+import { darkenColor, lightenColor } from "~/assets/utils/colors";
 
 //// INTERFACE FOR RBUSH
 interface NodeIndexItem {
@@ -18,15 +19,18 @@ interface NodeIndexItem {
     coord: [number, number];
 }
 
+const loading = ref(false);
 const mapEl = ref<HTMLElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
 
-const loading = ref(false);
+// TRUCK DATA
+const truckMarker = shallowRef<maplibregl.Marker | null>(null);
+const truckEl = ref<HTMLElement | null>(null);
+const truckHeading = ref(0);
 
 //// ROUTING STATE
 const startNodeId = ref<number | null>(null);
 const endNodeId = ref<number | null>(null);
-const startMarker = ref<maplibregl.Marker | null>(null);
 const endMarker = ref<maplibregl.Marker | null>(null);
 
 //// We use this to find noted in a specific area
@@ -38,7 +42,8 @@ const adjacency = new Map<
     { to: number; weight: number; roadType: string }[]
 >();
 const nodeCoords = new Map<number, [number, number]>();
-const currentZoom = ref(0);
+
+const { startTelemetry } = useEtsTelemetry();
 
 onMounted(async () => {
     if (!mapEl.value) return;
@@ -47,16 +52,34 @@ onMounted(async () => {
         map.value = await initializeMap(mapEl.value);
         if (!map.value) return;
 
-        currentZoom.value = map.value.getZoom();
-
-        map.value.on("zoom", () => {
-            if (map.value) {
-                currentZoom.value = map.value.getZoom();
-            }
-        });
-
         map.value.on("load", visualizeGraph);
         map.value.on("click", handleMapClick);
+
+        if (truckEl.value) {
+            truckMarker.value = new maplibregl.Marker({
+                element: truckEl.value,
+                anchor: "center",
+                rotationAlignment: "map",
+                pitchAlignment: "map",
+            })
+                .setLngLat([0, 0])
+                .addTo(map.value!);
+        }
+
+        startTelemetry((coords, heading) => {
+            if (!truckMarker.value) return;
+
+            truckMarker.value.setLngLat(coords);
+            truckMarker.value.setRotation(heading);
+            truckHeading.value = heading;
+
+            if (adjacency.size === 0 || nodeTree.all().length === 0) return;
+            const closestNodes = getClosestNodes(coords, 1);
+
+            if (closestNodes.length > 0) {
+                startNodeId.value = closestNodes[0]!;
+            }
+        });
     } catch (e) {
         console.error(e);
     }
@@ -79,35 +102,39 @@ function handleMapClick(e: maplibregl.MapMouseEvent) {
     if (startNodeId.value === null) {
         const nodeId = candidates[0]!;
         startNodeId.value = nodeId;
-
-        const nodeLoc = nodeCoords.get(nodeId);
-
-        if (startMarker.value) startMarker.value.remove();
-        if (endMarker.value) endMarker.value.remove();
-        endNodeId.value = null;
-        clearRouteLayer();
-
-        startMarker.value = new maplibregl.Marker({ color: "#00FF00" })
-            .setLngLat(nodeLoc as [number, number])
-            .addTo(map.value!);
     } else {
         const candidateSet = new Set(candidates);
 
         if (endMarker.value) endMarker.value.remove();
 
-        const result = calculateRoute(startNodeId.value, candidateSet);
+        const result = calculateRoute(
+            startNodeId.value,
+            candidateSet,
+            truckHeading.value
+        );
 
         if (result) {
-            endNodeId.value = result.endId; // This is the snapped ID
+            endNodeId.value = result.endId;
             const endLoc = nodeCoords.get(result.endId);
 
-            endMarker.value = new maplibregl.Marker({ color: "#FF0000" })
+            const marker = new maplibregl.Marker({
+                color: AppSettings.theme.defaultColor,
+            })
                 .setLngLat(endLoc as [number, number])
                 .addTo(map.value!);
 
-            drawRoute(result.path);
+            endMarker.value = marker;
+            const markerEl = marker.getElement();
 
-            startNodeId.value = null;
+            markerEl.style.cursor = "pointer";
+            markerEl.classList.add("my-custom-marker");
+
+            markerEl.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                clearRouteState();
+            });
+
+            drawRoute(result.path);
         } else {
             console.warn("Could not find a path to any nearby node");
         }
@@ -115,7 +142,7 @@ function handleMapClick(e: maplibregl.MapMouseEvent) {
 }
 
 function getClosestNodes(target: [number, number], limit = 5): number[] {
-    const radius = 0.5;
+    const radius = 0.3;
 
     const candidates = nodeTree.search({
         minX: target[0] - radius,
@@ -169,10 +196,17 @@ function getSignedAngle(
     return diff;
 }
 
+function getAngleDiff(angle1: number, angle2: number) {
+    let diff = Math.abs(angle1 - angle2);
+    if (diff > 180) diff = 360 - diff;
+    return diff;
+}
+
 //// DIJKSTRA ALGORITHM + COST
 function calculateRoute(
     start: number,
-    possibleEnds: Set<number>
+    possibleEnds: Set<number>,
+    startHeading: number | null = null
 ): { path: [number, number][]; endId: number } | null {
     const costs = new Map<number, number>();
     const previous = new Map<number, number>();
@@ -214,41 +248,58 @@ function calculateRoute(
             let stepCost = edge.weight || 1;
             const neighborCoord = nodeCoords.get(neighborId);
 
-            if (prevCoord && currentCoord && neighborCoord) {
-                const angle = getSignedAngle(
-                    prevCoord,
-                    currentCoord,
-                    neighborCoord
-                );
-                const absAngle = Math.abs(angle);
+            if (currentCoord && neighborCoord) {
+                if (currentId === start && startHeading !== null) {
+                    const directionToNeighbor = getBearing(
+                        currentCoord,
+                        neighborCoord
+                    );
+                    const angleDiff = getAngleDiff(
+                        startHeading,
+                        directionToNeighbor
+                    );
 
-                //// 1.MANUAL ROUNDABOUT
-                if (edge.roadType === "roundabout") {
-                    stepCost *= 0.5;
-
-                    if (angle < -100) {
-                        stepCost += 10000;
+                    if (angleDiff > 90) {
+                        stepCost += 1000000;
+                    } else if (angleDiff > 45) {
+                        stepCost += 1000;
                     }
-                }
+                } else if (prevCoord) {
+                    const angle = getSignedAngle(
+                        prevCoord,
+                        currentCoord,
+                        neighborCoord
+                    );
+                    const absAngle = Math.abs(angle);
 
-                //// 2. GLOBAL SAFETY
-                if (absAngle > 115) {
-                    stepCost += 1000000.0;
-                }
+                    //// 1.MANUAL ROUNDABOUT
+                    if (edge.roadType === "roundabout") {
+                        stepCost *= 0.5;
 
-                //// 3. WRONG WAY SHORTCUTS
-                else if (angle < -100) {
-                    stepCost += 1000.0;
-                }
+                        if (angle < -100) {
+                            stepCost += 10000;
+                        }
+                    }
 
-                //// 4. HIGHWAY FLOW
-                else if (absAngle < 20) {
-                    stepCost *= 0.9;
-                }
+                    //// 2. GLOBAL SAFETY
+                    if (absAngle > 115) {
+                        stepCost += 1000000.0;
+                    }
 
-                //// 5. STANDARD TURNS
-                else {
-                    stepCost += 0.05;
+                    //// 3. WRONG WAY SHORTCUTS
+                    else if (angle < -100) {
+                        stepCost += 1000.0;
+                    }
+
+                    //// 4. HIGHWAY FLOW
+                    else if (absAngle < 20) {
+                        stepCost *= 0.9;
+                    }
+
+                    //// 5. STANDARD TURNS
+                    else {
+                        stepCost += 0.05;
+                    }
                 }
             }
 
@@ -367,6 +418,15 @@ function clearRouteLayer() {
     }
 }
 
+function clearRouteState() {
+    clearRouteLayer();
+    if (endMarker.value) {
+        endMarker.value.remove();
+        endMarker.value = null;
+    }
+    endNodeId.value = null;
+}
+
 //// NODE INDEX FOR BBOX RBUSH TREE (fasteer search)
 function buildNodeIndex(nodes: { id: number; lng: number; lat: number }[]) {
     const items: NodeIndexItem[] = nodes.map((n) => ({
@@ -459,7 +519,7 @@ async function visualizeGraph() {
                 source: "debug-route",
                 layout: { "line-join": "round", "line-cap": "round" },
                 paint: {
-                    "line-color": AppSettings.theme.defaultColor,
+                    "line-color": "#22d3ee",
                     "line-width": [
                         "interpolate",
                         ["linear"],
@@ -499,27 +559,6 @@ async function visualizeGraph() {
         //             "line-opacity": 0.4,
         //         },
         //     });
-        //     if (!map.value.getLayer("debug-edges-arrows")) {
-        //         map.value.addLayer({
-        //             id: "debug-edges-arrows",
-        //             type: "symbol",
-        //             source: "debug-edges",
-        //             minzoom: 9,
-        //             layout: {
-        //                 "symbol-placement": "line",
-        //                 "symbol-spacing": 50,
-        //                 "text-field": "▶",
-        //                 "text-size": 18,
-        //                 "text-keep-upright": false,
-        //                 "text-allow-overlap": true,
-        //             },
-        //             paint: {
-        //                 "text-color": "#ffffff",
-        //                 "text-halo-color": "#000000",
-        //                 "text-halo-width": 2,
-        //             },
-        //         });
-        //     }
         // }
 
         loading.value = false;
@@ -531,8 +570,71 @@ async function visualizeGraph() {
 
 <template>
     <div ref="mapEl" class="map-container"></div>
-    <div class="zoom-display">Z: {{ currentZoom.toFixed(2) }}</div>
     <!-- <div v-else>LODING</div> -->
+    <button class="bottom-btn btn" v-on:click.prevent="clearRouteState">
+        Reset Navigation
+    </button>
+
+    <div style="display: none">
+        <div ref="truckEl" class="truck-marker">
+            <svg
+                width="48"
+                height="48"
+                viewBox="0 0 100 100"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style="
+                    display: block;
+                    filter: drop-shadow(0px 6px 8px rgba(0, 0, 0, 0.3));
+                "
+            >
+                <defs>
+                    <linearGradient
+                        id="two-tone"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                    >
+                        <stop
+                            offset="50%"
+                            :stop-color="
+                                darkenColor(AppSettings.theme.defaultColor, 0.1)
+                            "
+                        />
+                        <stop
+                            offset="50%"
+                            :stop-color="
+                                lightenColor(
+                                    AppSettings.theme.defaultColor,
+                                    0.23
+                                )
+                            "
+                        />
+                    </linearGradient>
+                </defs>
+
+                <!-- 
+                    The Shape:
+                    1. fill="url(#two-tone)": Applies the split color.
+                    2. stroke="url(#two-tone)": Applies the color to the edges too.
+                    3. stroke-width="10": THICKNESS determines ROUNDNESS.
+                    4. stroke-linejoin="round": Actually rounds the corners.
+                -->
+                <path
+                    d="M50 10 L90 85 L50 70 L10 85 Z"
+                    fill="url(#two-tone)"
+                    stroke="url(#two-tone)"
+                    stroke-width="12"
+                    stroke-linejoin="round"
+                    paint-order="stroke fill"
+                />
+
+                <!-- Optional: Subtle white center line if you want it to look more "folded" -->
+                <!-- <path d="M50 10 L50 70" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-linecap="round"/> -->
+            </svg>
+        </div>
+    </div>
 </template>
 
 <style scoped lang="scss">

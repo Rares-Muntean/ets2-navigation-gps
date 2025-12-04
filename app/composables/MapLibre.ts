@@ -54,7 +54,8 @@ export async function initializeMap(
         zoom: 6,
         minZoom: 5,
         maxZoom: 11.5,
-        maxPitch: 55,
+        maxPitch: 40,
+        localIdeographFontFamily: "Quicksand",
     });
 
     map.on("load", async () => {
@@ -267,13 +268,16 @@ export async function initializeMap(
             source: "ets2-cities",
             layout: {
                 "text-field": ["get", "name"],
-                "text-font": ["Quicksand medium"],
+                "text-font": ["Quicksand"],
                 "text-size": 15,
                 "text-anchor": "bottom",
                 "text-offset": [0, -0.3],
             },
             paint: {
                 "text-color": "#ffffff",
+
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 0.3,
             },
             minzoom: 5.5,
         });
@@ -315,12 +319,14 @@ export async function initializeMap(
             layout: {
                 "text-field": ["get", "name"],
                 "text-size": 18,
-                "text-font": ["Quicksand medium"],
+                "text-font": ["Quicksand"],
                 "text-anchor": "bottom",
                 "text-offset": [0, -0.3],
             },
             paint: {
                 "text-color": "#ffffff",
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 0.5,
             },
             minzoom: 5,
         });
