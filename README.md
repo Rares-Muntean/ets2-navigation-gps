@@ -143,12 +143,12 @@ Reported issues will be addressed as time permits.
 
 This project stands on the shoulders of giants. A massive thank you to the following developers who made this possible:
 
-### [truckermudgeon](https://github.com/truckermudgeon)
+### [@truckermudgeon](https://github.com/truckermudgeon)
 Special thanks for the **['maps'](https://github.com/truckermudgeon/maps)** repository.
 *   This provided the essential starting point for map parsing.
 *   The logic for converting internal game coordinates to a usable format (WGS84) was invaluable for getting the map rendered correctly.
 
-### [Funbit](https://github.com/Funbit)
+### [@Funbit](https://github.com/Funbit)
 Thanks for the **['ets2-telemetry-server'](https://github.com/Funbit/ets2-telemetry-server)**.
 *   This tool is the bridge that allows the browser to communicate with the game engine. Without this, we wouldn't have live truck data.
 
