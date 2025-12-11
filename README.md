@@ -61,11 +61,6 @@ cd euro-truck-nav
 ### 2. Prepare the Environment (Windows Users)
 If you are on Windows, you may need to run the following commands to ensure the installation proceeds without problems.
 
-**Enable Long Paths:**
-```bash
-git config --global core.longpaths true
-```
-
 **PowerShell Script Execution:**
 
 If you encounter errors regarding disabled scripts in PowerShell, run one of the following commands as Administrator:
