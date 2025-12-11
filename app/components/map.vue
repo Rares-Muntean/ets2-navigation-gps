@@ -601,7 +601,7 @@ function toggleSheet() {
             >
                 <Transition name="over-limit">
                     <div
-                        v-if="truckSpeed > speedLimit"
+                        v-if="truckSpeed > speedLimit + 5"
                         class="speed-limit-circle-over-limit"
                     >
                         <div class="over-limit">{{ truckSpeed }}</div>
@@ -625,6 +625,14 @@ function toggleSheet() {
                     v-if="speedLimit !== 0"
                     class="speed-limit-circle speed-limit-circle-sheet"
                 >
+                    <Transition name="over-limit">
+                        <div
+                            v-if="truckSpeed > speedLimit + 5"
+                            class="speed-limit-circle-over-limit"
+                        >
+                            <div class="over-limit">{{ truckSpeed }}</div>
+                        </div>
+                    </Transition>
                     <div class="speed-limit">
                         {{ speedLimit }}
                     </div>
