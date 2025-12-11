@@ -81,7 +81,7 @@ npm install
 ## Running the App
 Start the development server with the following command and wait for the Ets2 Telemetry server to clone:
 ```Bash
-npx nuxi dev --hostname 0.0.0.0
+npx nuxi dev --host 0.0.0.0
 ```
 Follow the instructions from the opened .exe to install the telemetry plugin DLLs into your game directory.
 
