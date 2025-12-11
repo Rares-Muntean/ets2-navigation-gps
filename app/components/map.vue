@@ -210,7 +210,6 @@ function handleMapClick(e: maplibregl.MapMouseEvent) {
     startNodeId.value = startConfig.toId;
 
     const clickedCoords: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-    console.log(clickedCoords);
     const clickPt = point(clickedCoords);
     const endCandidates = getClosestNodes(clickedCoords, 10);
 
