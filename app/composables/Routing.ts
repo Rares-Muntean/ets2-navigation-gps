@@ -125,7 +125,7 @@ export function useRouting() {
                             { units: "kilometers" }
                         );
 
-                        const isZigZag = distFromPrev < 0.2 && absAngle > 65;
+                        const isZigZag = distFromPrev < 0.2 && absAngle > 89;
 
                         if (isZigZag) {
                             stepCost += 10_000_000;

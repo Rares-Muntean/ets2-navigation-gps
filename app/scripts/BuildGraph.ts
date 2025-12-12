@@ -118,7 +118,7 @@ function storeFeaturePoints(features: InputFeature[]) {
         });
     }
 
-    const injectPoint = (pt: Coord, sourceIdx: number) => {
+    const injectPoint = (pt: Coord, sourceIdx: number, isStart: boolean) => {
         const searchDistDeg = 0.0002;
         const candidates = tree.search({
             minX: pt[0] - searchDistDeg,
@@ -133,7 +133,6 @@ function storeFeaturePoints(features: InputFeature[]) {
             const candidateLine = features[item.idx];
             const pointGeo = turf.point(pt);
 
-            // Snap the endpoint to the nearby line
             const snapped = turf.nearestPointOnLine(
                 candidateLine as any,
                 pointGeo,
@@ -146,7 +145,18 @@ function storeFeaturePoints(features: InputFeature[]) {
                 snapped.properties.dist < 0.005
             ) {
                 const snapCoord = snapped.geometry.coordinates as Coord;
+
                 splitPointsToMap.get(item.idx)?.add(coordKey(snapCoord));
+
+                if (isStart) {
+                    features[sourceIdx].geometry.coordinates[0] = snapCoord;
+                } else {
+                    const len = features[sourceIdx].geometry.coordinates.length;
+                    features[sourceIdx].geometry.coordinates[len - 1] =
+                        snapCoord;
+                }
+
+                splitPointsToMap.get(sourceIdx)?.add(coordKey(snapCoord));
             }
         }
     };
@@ -154,8 +164,8 @@ function storeFeaturePoints(features: InputFeature[]) {
     for (let i = 0; i < features.length; i++) {
         const coords = features[i].geometry.coordinates;
         if (!coords || coords.length < 2) continue;
-        injectPoint(coords[0], i); // Connect Start
-        injectPoint(coords[coords.length - 1], i); // Connect End
+        injectPoint(coords[0], i, true); // Connect Start
+        injectPoint(coords[coords.length - 1], i, false); // Connect End
     }
 
     return splitPointsToMap;
