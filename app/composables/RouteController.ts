@@ -215,7 +215,7 @@ export const useRouteController = (
         console.log(clickCoords);
 
         const clickPt = point(clickCoords);
-        const endCandidates = getClosestNodes(clickCoords, 10);
+        const endCandidates = getClosestNodes(clickCoords, 10, 0.1);
         if (endCandidates.length === 0) return;
 
         let bestEndNode = endCandidates[0];
