@@ -105,6 +105,43 @@ export const useRouteController = (
         return null;
     }
 
+    /**
+     * Tries to find a route. If it fails, it expands the search radius
+     * around the destination and tries again automatically.
+     */
+    function findFlexibleRoute(
+        startNodeId: number,
+        targetCoords: [number, number],
+        truckHeading: number,
+        startType: "road" | "yard"
+    ) {
+        const SEARCH_RADII = [5, 30, 60, 150];
+
+        for (const radius of SEARCH_RADII) {
+            const candidates = getClosestNodes(targetCoords, radius, 0.05);
+
+            if (candidates.length === 0) continue;
+
+            const targetSet = new Set<number>(candidates);
+
+            const result = calculateRoute(
+                startNodeId,
+                targetSet,
+                truckHeading,
+                adjacency,
+                nodeCoords,
+                startType,
+                targetCoords
+            );
+
+            if (result) {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
     // Merges close nodes and cleans them up for smoother route visualisation
     function drawRouteOnMap(coords: [number, number][]) {
         if (!map.value) return;
@@ -245,18 +282,15 @@ export const useRouteController = (
             }
         }
 
-        if (endMarker.value) endMarker.value.remove();
-
-        const result = calculateRoute(
+        const result = findFlexibleRoute(
             startNodeId.value!,
-            new Set([bestEndNode]),
+            clickCoords,
             truckHeading,
-            adjacency,
-            nodeCoords,
             startConfig.type as "road" | "yard"
         );
 
         if (result) {
+            if (endMarker.value) endMarker.value.remove();
             endNodeId.value = result.endId;
             const stitchedPath = [startConfig.projectedCoords, ...result.path];
             currentRoutePath.value = stitchedPath;
