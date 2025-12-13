@@ -62,6 +62,7 @@ const {
     routeDistance,
     routeEta,
     endMarker,
+    initWorkerData,
 } = useRouteController(map, adjacency, nodeCoords);
 
 watch([loading, gameConnected], ([isLoading, isGameConnected]) => {
@@ -96,7 +97,9 @@ onMounted(async () => {
         );
 
         map.value.on("load", async () => {
-            await initializeGraphData();
+            const { nodes, edges } = await initializeGraphData();
+            initWorkerData(nodes, edges);
+
             setupRouteLayer();
             initCameraListeners();
         });

@@ -16,6 +16,10 @@ export const useRouteController = (
     adjacency: Map<number, { to: number; weight: number; r: number }[]>,
     nodeCoords: Map<number, [number, number]>
 ) => {
+    const { mergeClosePoints } = useRouting();
+    const { getGameLocationName, calculateGameRouteDetails } = useCityData();
+    const { getClosestNodes } = useGraphSystem();
+
     const currentRoutePath = shallowRef<[number, number][] | null>(null);
     const destinationName = ref<string>("");
     const routeDistance = ref<string>("");
@@ -25,9 +29,61 @@ export const useRouteController = (
     const endNodeId = ref<number | null>(null);
     const lastMathPos = ref<[number, number] | null>(null);
 
-    const { calculateRoute, mergeClosePoints } = useRouting();
-    const { getGameLocationName, calculateGameRouteDetails } = useCityData();
-    const { getClosestNodes } = useGraphSystem();
+    let worker: Worker | null = null;
+
+    if (import.meta.client) {
+        worker = new Worker(
+            new URL("~/assets/workers/route.worker.ts", import.meta.url),
+            { type: "module" }
+        );
+
+        worker.onmessage = (e) => {
+            if (e.data.type === "READY") console.log("Web Worker Ready.");
+        };
+    }
+
+    function initWorkerData(nodesArray: any[], edgesArray: any[]) {
+        if (!worker) return;
+        worker.postMessage({
+            type: "INIT_GRAPH",
+            payload: { nodes: nodesArray, edges: edgesArray },
+        });
+    }
+
+    function calculateRouteInWorker(
+        startId: number,
+        possibleEnds: number[],
+        heading: number,
+        startType: string,
+        targetCoords: [number, number]
+    ): Promise<any> {
+        return new Promise((resolve) => {
+            if (!worker) {
+                resolve(null);
+                return;
+            }
+
+            const handler = (e: MessageEvent) => {
+                if (e.data.type === "RESULT") {
+                    worker.removeEventListener("message", handler);
+                    resolve(e.data.payload);
+                }
+            };
+
+            worker.addEventListener("message", handler);
+
+            worker.postMessage({
+                type: "CALC_ROUTE",
+                payload: {
+                    startId,
+                    possibleEnds,
+                    heading,
+                    startType,
+                    targetCoords,
+                },
+            });
+        });
+    }
 
     function findBestStartConfiguration(
         truckCoords: [number, number],
@@ -109,7 +165,7 @@ export const useRouteController = (
      * Tries to find a route. If it fails, it expands the search radius
      * around the destination and tries again automatically.
      */
-    function findFlexibleRoute(
+    async function findFlexibleRoute(
         startNodeId: number,
         targetCoords: [number, number],
         truckHeading: number,
@@ -122,14 +178,10 @@ export const useRouteController = (
 
             if (candidates.length === 0) continue;
 
-            const targetSet = new Set<number>(candidates);
-
-            const result = calculateRoute(
+            const result = await calculateRouteInWorker(
                 startNodeId,
-                targetSet,
+                candidates,
                 truckHeading,
-                adjacency,
-                nodeCoords,
                 startType,
                 targetCoords
             );
@@ -230,7 +282,7 @@ export const useRouteController = (
         );
     }
 
-    function handleRouteClick(
+    async function handleRouteClick(
         clickCoords: [number, number],
         truckCoords: [number, number],
         truckHeading: number
@@ -251,38 +303,10 @@ export const useRouteController = (
         startNodeId.value = startConfig.toId;
         console.log(clickCoords);
 
-        const clickPt = point(clickCoords);
         const endCandidates = getClosestNodes(clickCoords, 10, 0.1);
         if (endCandidates.length === 0) return;
 
-        let bestEndNode = endCandidates[0];
-        let minEndDist = Infinity;
-
-        for (const nodeId of endCandidates) {
-            const nPos = nodeCoords.get(nodeId);
-            const neighbors = adjacency.get(nodeId);
-            if (!nPos || !neighbors) continue;
-
-            for (const edge of neighbors) {
-                const neighPos = nodeCoords.get(edge.to);
-                if (!neighPos) continue;
-
-                const line = lineString([nPos, neighPos]);
-                const snap = nearestPointOnLine(line, clickPt);
-
-                if (
-                    snap.properties.dist !== undefined &&
-                    snap.properties.dist < minEndDist
-                ) {
-                    minEndDist = snap.properties.dist;
-                    const d1 = distance(clickPt, point(nPos));
-                    const d2 = distance(clickPt, point(neighPos));
-                    bestEndNode = d1 < d2 ? nodeId : edge.to;
-                }
-            }
-        }
-
-        const result = findFlexibleRoute(
+        const result = await findFlexibleRoute(
             startNodeId.value!,
             clickCoords,
             truckHeading,
@@ -377,6 +401,7 @@ export const useRouteController = (
         routeDistance,
         routeEta,
         endMarker,
+        initWorkerData,
         currentRoutePath,
         setupRouteLayer,
         handleRouteClick,
