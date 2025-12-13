@@ -128,7 +128,7 @@ export function useRouting() {
         const startLat = flatCoords[start * 2 + 1]!;
 
         const distKm = fastDistKm(startLng, startLat, destLng, destLat);
-        const maxIterations = 5000 + distKm * 500;
+        const maxIterations = 70000 + distKm * 500;
 
         const HEURISTIC_SCALE = 3.0;
 
@@ -182,8 +182,15 @@ export function useRouting() {
 
                 if (currentId === start && startHeading !== null) {
                     if (startType === "yard") {
+                        console.log("iTS YARD");
                         stepCost += 10;
+                        const dir = getBearing([cLng, cLat], [nLng, nLat]);
+                        const diff = getAngleDiff(startHeading, dir);
+                        if (diff > 90) stepCost += 10_000_000;
+                        else if (diff > 45) stepCost += 1000;
                     } else {
+                        console.log("iTS rod");
+
                         const dir = getBearing([cLng, cLat], [nLng, nLat]);
                         const diff = getAngleDiff(startHeading, dir);
                         if (diff > 90) stepCost += 10_000_000;
