@@ -1,10 +1,45 @@
-import { distance, point } from "@turf/turf";
 import { MinHeap } from "~/assets/utils/MinHeap";
 import {
     getBearing,
     getAngleDiff,
     getSignedAngle,
 } from "~/assets/utils/geographicMath";
+
+const MAX_NODES = 900000;
+
+const cache_costs = new Float64Array(MAX_NODES);
+const cache_previous = new Int32Array(MAX_NODES);
+const cache_visited = new Uint8Array(MAX_NODES);
+
+let cache_flatCoords: Float64Array | null = null;
+
+function ensureCoordCache(nodeCoords: Map<number, [number, number]>) {
+    if (cache_flatCoords && cache_flatCoords.length > 0) return;
+
+    cache_flatCoords = new Float64Array(MAX_NODES * 2);
+
+    for (const [id, [lng, lat]] of nodeCoords) {
+        if (id * 2 + 1 < cache_flatCoords.length) {
+            cache_flatCoords[id * 2] = lng;
+            cache_flatCoords[id * 2 + 1] = lat;
+        }
+    }
+}
+
+function fastDistKm(
+    lng1: number,
+    lat1: number,
+    lng2: number,
+    lat2: number
+): number {
+    const ky = 111.0;
+    const kx = 111.0 * 0.65;
+
+    const dy = (lat1 - lat2) * ky;
+    const dx = (lng1 - lng2) * kx;
+
+    return Math.sqrt(dx * dx + dy * dy);
+}
 
 export function useRouting() {
     const mergeClosePoints = (
@@ -14,7 +49,6 @@ export function useRouting() {
         if (coords.length < 2) return coords;
         const result: [number, number][] = [];
         let i = 0;
-
         while (i < coords.length) {
             const current = coords[i]!;
             if (i === coords.length - 1) {
@@ -22,11 +56,10 @@ export function useRouting() {
                 break;
             }
             const next = coords[i + 1]!;
-            const dist = distance(point(current), point(next), {
-                units: "meters",
-            });
+            const d =
+                fastDistKm(current[0], current[1], next[0], next[1]) * 1000;
 
-            if (dist < minDistanceMeters) {
+            if (d < minDistanceMeters) {
                 const midPoint: [number, number] = [
                     (current[0] + next[0]) / 2,
                     (current[1] + next[1]) / 2,
@@ -51,151 +84,157 @@ export function useRouting() {
         startType: "road" | "yard" = "road",
         targetLocation?: [number, number]
     ): { path: [number, number][]; endId: number } | null => {
-        const costs = new Map<number, number>();
-        const previous = new Map<number, number>();
-        const openHeap = new MinHeap();
+        ensureCoordCache(nodeCoords);
+        const flatCoords = cache_flatCoords!;
 
-        let destCoord = targetLocation;
-        if (!destCoord) {
+        cache_costs.fill(Infinity);
+        cache_previous.fill(-1);
+        cache_visited.fill(0);
+
+        const openHeap = new MinHeap(5000);
+
+        let destLng = 0,
+            destLat = 0;
+        let foundDest = false;
+
+        if (targetLocation) {
+            destLng = targetLocation[0];
+            destLat = targetLocation[1];
+            foundDest = true;
+        } else {
             const firstEndId = [...possibleEnds][0];
-            if (firstEndId !== undefined)
-                destCoord = nodeCoords.get(firstEndId);
-        }
-        if (!destCoord) return null;
-
-        const startCoord = nodeCoords.get(start);
-        let maxIterations = 10000;
-
-        if (startCoord) {
-            const distKm = distance(point(startCoord), point(destCoord), {
-                units: "kilometers",
-            });
-
-            // Allow 200 nodes per kilometer + the base budget
-            maxIterations = 5000 + distKm * 300;
+            if (firstEndId !== undefined) {
+                destLng = flatCoords[firstEndId * 2]!;
+                destLat = flatCoords[firstEndId * 2 + 1]!;
+                foundDest = true;
+            }
         }
 
-        const HEURISTIC_SCALE = 5;
+        if (!foundDest) return null;
 
-        function heuristic(nodeId: number): number {
-            const node = nodeCoords.get(nodeId);
-            if (!node) return 0;
-            const dx = node[0] - destCoord![0];
-            const dy = node[1] - destCoord![1];
-            return Math.sqrt(dx * dx + dy * dy) * HEURISTIC_SCALE;
-        }
+        const startLng = flatCoords[start * 2]!;
+        const startLat = flatCoords[start * 2 + 1]!;
 
-        costs.set(start, 0);
+        const distKm = fastDistKm(startLng, startLat, destLng, destLat);
+        const maxIterations = 5000 + distKm * 500;
+
+        const HEURISTIC_SCALE = 3.0;
+
+        const getHeuristic = (id: number) => {
+            const nLng = flatCoords[id * 2]!;
+            const nLat = flatCoords[id * 2 + 1]!;
+            const dx = nLng - destLng;
+            const dy = nLat - destLat;
+            return Math.sqrt(dx * dx + dy * dy) * 100 * HEURISTIC_SCALE;
+        };
+
+        cache_costs[start] = 0;
         openHeap.push(start, 0);
 
         let foundEndId: number | null = null;
-        const visited = new Set<number>();
         let iterations = 0;
 
         while (openHeap.size() > 0) {
             iterations++;
-            if (iterations > maxIterations) {
-                return null;
-            }
+            if (iterations > maxIterations) return null;
 
             const currentId = openHeap.pop();
             if (currentId === undefined) break;
 
-            if (visited.has(currentId)) continue;
-            visited.add(currentId);
+            if (cache_visited[currentId] === 1) continue;
+            cache_visited[currentId] = 1;
 
             if (possibleEnds.has(currentId)) {
                 foundEndId = currentId;
                 break;
             }
 
-            const neighbors = adjacency.get(currentId) || [];
-            const currentCoord = nodeCoords.get(currentId);
-            const prevId = previous.get(currentId);
-            const currentG = costs.get(currentId) ?? Infinity;
+            const currentG = cache_costs[currentId]!;
+            const neighbors = adjacency.get(currentId);
+            if (!neighbors) continue;
 
-            for (const edge of neighbors) {
+            const cLng = flatCoords[currentId * 2]!;
+            const cLat = flatCoords[currentId * 2 + 1]!;
+            const prevId = cache_previous[currentId]!;
+
+            for (let i = 0; i < neighbors.length; i++) {
+                const edge = neighbors[i]!;
                 const neighborId = edge.to;
-                if (visited.has(neighborId)) continue;
+
+                if (cache_visited[neighborId] === 1) continue;
 
                 let stepCost = edge.weight || 1;
-                const neighborCoord = nodeCoords.get(neighborId);
 
-                if (currentCoord && neighborCoord) {
-                    if (currentId === start && startHeading !== null) {
-                        if (startType === "yard") {
-                            stepCost += 10;
-                        } else {
-                            const dir = getBearing(currentCoord, neighborCoord);
-                            const diff = getAngleDiff(startHeading, dir);
-                            if (diff > 90) stepCost += 10_000_000;
-                            else if (diff > 45) stepCost += 1000;
-                        }
-                    } else if (prevId !== undefined) {
-                        let refCoord = nodeCoords.get(prevId)!;
-                        let distToPrev = distance(
-                            point(refCoord),
-                            point(currentCoord),
-                            { units: "meters" }
-                        );
+                const nLng = flatCoords[neighborId * 2]!;
+                const nLat = flatCoords[neighborId * 2 + 1]!;
 
-                        if (distToPrev < 5) {
-                            const grandPrevId = previous.get(prevId);
-                            if (grandPrevId !== undefined) {
-                                refCoord = nodeCoords.get(grandPrevId)!;
-                            }
-                        }
+                if (currentId === start && startHeading !== null) {
+                    if (startType === "yard") {
+                        stepCost += 10;
+                    } else {
+                        const dir = getBearing([cLng, cLat], [nLng, nLat]);
+                        const diff = getAngleDiff(startHeading, dir);
+                        if (diff > 90) stepCost += 10_000_000;
+                        else if (diff > 45) stepCost += 1000;
+                    }
+                } else if (prevId !== -1) {
+                    let pLng = flatCoords[prevId * 2]!;
+                    let pLat = flatCoords[prevId * 2 + 1]!;
 
-                        const angle = getSignedAngle(
-                            refCoord,
-                            currentCoord,
-                            neighborCoord
-                        );
-                        const absAngle = Math.abs(angle);
+                    const distToPrev = fastDistKm(pLng, pLat, cLng, cLat);
 
-                        // ====== BLOCKING U-TURNS
-
-                        const immediatePrevCoord = nodeCoords.get(prevId)!;
-                        const distFromImmediate = distance(
-                            point(immediatePrevCoord),
-                            point(currentCoord),
-                            { units: "kilometers" }
-                        );
-
-                        const isZigZag =
-                            distFromImmediate < 0.2 && absAngle > 89;
-
-                        if (isZigZag) stepCost += 1_000_000_000;
-
-                        // BLOCKING U-TURNS ======
-
-                        // ANGLE CHECKS
-                        if (edge.r === 2) {
-                            stepCost *= 1.1;
-                            if (angle < -100) stepCost += 100_000;
-                        }
-
-                        if (absAngle > 98) {
-                            stepCost += Infinity;
-                        } else if (angle < -45) {
-                            stepCost += 2000;
-                        } else if (angle > 45) {
-                            stepCost += 500;
-                        } else if (absAngle > 10) {
-                            stepCost += 50;
+                    if (distToPrev < 0.005) {
+                        const grandPrevId = cache_previous[prevId]!;
+                        if (grandPrevId !== -1) {
+                            pLng = flatCoords[grandPrevId * 2]!;
+                            pLat = flatCoords[grandPrevId * 2 + 1]!;
                         }
                     }
+
+                    const angle = getSignedAngle(
+                        [pLng, pLat],
+                        [cLng, cLat],
+                        [nLng, nLat]
+                    );
+                    const absAngle = Math.abs(angle);
+
+                    // ===== BLOCKING U-TURN
+
+                    const immPLng = flatCoords[prevId * 2]!;
+                    const immPLat = flatCoords[prevId * 2 + 1]!;
+
+                    const distFromImm = fastDistKm(
+                        immPLng,
+                        immPLat,
+                        cLng,
+                        cLat
+                    );
+                    const isZigZag = distFromImm < 0.2 && absAngle > 89;
+
+                    if (isZigZag) stepCost += 1_000_000_000;
+
+                    // BLOCKING U-TURN =====
+
+                    if (edge.r === 2) {
+                        stepCost *= 1.1;
+                        if (angle < -100) stepCost += 100_000;
+                    }
+
+                    if (absAngle > 98) stepCost += Infinity;
+                    else if (angle < -45) stepCost += 2000;
+                    else if (angle > 45) stepCost += 500;
+                    else if (absAngle > 10) stepCost += 50;
                 }
 
                 if (stepCost < 1) stepCost = 1;
                 const tentativeG = currentG + stepCost;
 
-                if (tentativeG < (costs.get(neighborId) ?? Infinity)) {
-                    previous.set(neighborId, currentId);
-                    costs.set(neighborId, tentativeG);
+                if (tentativeG < cache_costs[neighborId]!) {
+                    cache_previous[neighborId] = currentId;
+                    cache_costs[neighborId] = tentativeG;
                     openHeap.push(
                         neighborId,
-                        tentativeG + heuristic(neighborId)
+                        tentativeG + getHeuristic(neighborId)
                     );
                 }
             }
@@ -204,11 +243,12 @@ export function useRouting() {
         if (foundEndId === null) return null;
 
         const path: [number, number][] = [];
-        let curr: number | undefined = foundEndId;
-        while (curr !== undefined) {
-            const coord = nodeCoords.get(curr);
-            if (coord) path.unshift(coord);
-            curr = previous.get(curr);
+        let curr: number = foundEndId;
+
+        while (curr !== -1) {
+            path.unshift([flatCoords[curr * 2]!, flatCoords[curr * 2 + 1]!]);
+            curr = cache_previous[curr]!;
+            if (path.length > 20000) break;
         }
 
         return { path, endId: foundEndId };
