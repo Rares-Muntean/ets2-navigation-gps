@@ -400,7 +400,7 @@ export const useRouteController = (
         currentRouteIndex.value = bestIndex;
 
         const distToEndSq = getSquaredDist(truckCoords, path[path.length - 1]!);
-        if (distToEndSq < 0.03) {
+        if (distToEndSq < 0.00000025) {
             clearRouteState();
             return;
         }
