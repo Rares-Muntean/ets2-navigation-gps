@@ -22,6 +22,9 @@ export function useGraphSystem() {
     const loading = ref(true);
     const progress = ref(0);
 
+    let rawNodesForWorker: any[] = [];
+    let rawEdgesForWorker: any[] = [];
+
     const sleep = (ms: number) =>
         new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -55,7 +58,22 @@ export function useGraphSystem() {
         if (adjacency.size > 0) {
             loading.value = false;
             progress.value = 100;
-            return;
+
+            const existingNodes = Array.from(nodeCoords.entries());
+
+            const existingEdges: any[] = [];
+            for (const [from, neighbors] of adjacency.entries()) {
+                for (const edge of neighbors) {
+                    existingEdges.push({
+                        from,
+                        to: edge.to,
+                        w: edge.weight,
+                        r: edge.r,
+                    });
+                }
+            }
+
+            return { nodes: existingNodes, edges: existingEdges };
         }
 
         loading.value = true;
@@ -69,6 +87,10 @@ export function useGraphSystem() {
 
         try {
             const { nodes, edges } = await loadGraph();
+
+            rawNodesForWorker = nodes.map((n) => [n.id, [n.lng, n.lat]]);
+            rawEdgesForWorker = edges;
+
             if (progress.value < 50) progress.value = 50;
             await sleep(200);
 
@@ -119,6 +141,8 @@ export function useGraphSystem() {
                 loading.value = false;
             }, 1000);
         }
+
+        return { edges: rawEdgesForWorker, nodes: rawNodesForWorker };
     };
 
     return {
