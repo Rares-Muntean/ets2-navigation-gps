@@ -172,7 +172,7 @@ export const useRouteController = (
         truckHeading: number,
         startType: "road" | "yard"
     ) {
-        const SEARCH_RADII = [5, 30, 60, 150];
+        const SEARCH_RADII = [1, 2, 4, 8, 16, 32, 100, 300];
 
         for (const radius of SEARCH_RADII) {
             const candidates = getClosestNodes(targetCoords, radius, 0.05);
@@ -377,22 +377,22 @@ export const useRouteController = (
                 routeLine
             );
 
+            const realMapDistanceKm = length(remainingSection, {
+                units: "kilometers",
+            });
+
+            if (realMapDistanceKm < 0.3) {
+                console.log(realMapDistanceKm);
+                clearRouteState();
+                return;
+            }
+
             const remainingCoords = remainingSection.geometry.coordinates as [
                 number,
                 number
             ][];
 
-            if (remainingCoords.length < 2) {
-                clearRouteState();
-                return;
-            }
-
             const details = calculateGameRouteDetails(remainingCoords);
-
-            if (details.km < 1) {
-                clearRouteState();
-                return;
-            }
 
             routeDistance.value = `${details.km} km`;
             routeEta.value = details.time;
