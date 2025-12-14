@@ -4,8 +4,6 @@ import {
     lineString,
     nearestPointOnLine,
     point,
-    simplify,
-    length,
 } from "@turf/turf";
 import maplibregl from "maplibre-gl";
 import { getAngleDiff, getBearing } from "~/assets/utils/geographicMath";
@@ -195,17 +193,45 @@ export const useRouteController = (
         return null;
     }
 
-    // Merges close nodes and cleans them up for smoother route visualisation
+    function smoothPath(coords: [number, number][]): [number, number][] {
+        if (coords.length < 3) return coords;
+
+        const output: [number, number][] = [];
+
+        output.push(coords[0]!);
+
+        for (let i = 0; i < coords.length - 1; i++) {
+            const p0 = coords[i]!;
+            const p1 = coords[i + 1]!;
+
+            const q: [number, number] = [
+                0.75 * p0[0] + 0.25 * p1[0],
+                0.75 * p0[1] + 0.25 * p1[1],
+            ];
+
+            const r: [number, number] = [
+                0.25 * p0[0] + 0.75 * p1[0],
+                0.25 * p0[1] + 0.75 * p1[1],
+            ];
+
+            output.push(q);
+            output.push(r);
+        }
+
+        output.push(coords[coords.length - 1]!);
+
+        return output;
+    }
+
     function drawRouteOnMap(coords: [number, number][]) {
         if (!map.value) return;
 
-        let cleanCoords = mergeClosePoints(coords, 300);
+        let cleanCoords = mergeClosePoints(coords, 600);
 
-        const line = lineString(cleanCoords);
-        const simplifiedLine = simplify(line, {
-            tolerance: 0.0005,
-            highQuality: true,
-        });
+        let smoothed = smoothPath(cleanCoords);
+        smoothed = smoothPath(smoothed);
+
+        const line = lineString(smoothed);
 
         const source = map.value.getSource(
             "debug-route"
@@ -218,7 +244,7 @@ export const useRouteController = (
                     {
                         type: "Feature",
                         properties: {},
-                        geometry: simplifiedLine.geometry,
+                        geometry: line.geometry,
                     },
                 ],
             });
