@@ -182,15 +182,12 @@ export function useRouting() {
 
                 if (currentId === start && startHeading !== null) {
                     if (startType === "yard") {
-                        console.log("iTS YARD");
                         stepCost += 10;
                         const dir = getBearing([cLng, cLat], [nLng, nLat]);
                         const diff = getAngleDiff(startHeading, dir);
                         if (diff > 90) stepCost += 10_000_000;
                         else if (diff > 45) stepCost += 1000;
                     } else {
-                        console.log("iTS rod");
-
                         const dir = getBearing([cLng, cLat], [nLng, nLat]);
                         const diff = getAngleDiff(startHeading, dir);
                         if (diff > 90) stepCost += 10_000_000;
@@ -207,49 +204,59 @@ export function useRouting() {
                     );
                     const absAngle = Math.abs(angle);
 
-                    const distPrevToCurr = fastDistKm(pLng, pLat, cLng, cLat);
+                    if (edge.r === 2) {
+                        stepCost *= 1.1;
+                        if (angle < -100) stepCost += 100_000;
+                    }
 
-                    if (distPrevToCurr < 0.2) {
-                        const grandPrevId = cache_previous[prevId]!;
+                    if (absAngle > 98) {
+                        stepCost += Infinity;
+                    } else if (angle < -45) stepCost += 2000;
+                    else if (angle > 45) stepCost += 500;
+                    else if (absAngle > 10) stepCost += 50;
 
-                        if (grandPrevId !== -1) {
-                            const gpLng = flatCoords[grandPrevId * 2]!;
-                            const gpLat = flatCoords[grandPrevId * 2 + 1]!;
+                    let tempPrev = prevId;
+                    let traveledDist = 0;
 
-                            const headingIn = getHeading(
-                                gpLng,
-                                gpLat,
-                                pLng,
-                                pLat
+                    for (let k = 0; k < 6; k++) {
+                        const grandPrev = cache_previous[tempPrev]!;
+                        if (grandPrev === -1) break;
+
+                        const tLng = flatCoords[tempPrev * 2]!;
+                        const tLat = flatCoords[tempPrev * 2 + 1]!;
+                        const gLng = flatCoords[grandPrev * 2]!;
+                        const gLat = flatCoords[grandPrev * 2 + 1]!;
+
+                        const segDist = fastDistKm(gLng, gLat, tLng, tLat);
+                        traveledDist += segDist;
+
+                        if (traveledDist > 0.3) {
+                            const headingOld = getHeading(
+                                gLng,
+                                gLat,
+                                tLng,
+                                tLat
                             );
 
-                            const headingOut = getHeading(
+                            const headingNew = getHeading(
                                 cLng,
                                 cLat,
                                 nLng,
                                 nLat
                             );
 
-                            const radianDiff = getRadianAngleDiff(
-                                headingIn,
-                                headingOut
+                            const diff = getRadianAngleDiff(
+                                headingOld,
+                                headingNew
                             );
 
-                            if (radianDiff > 1.2) {
+                            if (diff > 2.8) {
                                 stepCost += Infinity;
                             }
+                            break;
                         }
+                        tempPrev = grandPrev;
                     }
-
-                    if (edge.r === 2) {
-                        stepCost *= 1.1;
-                        if (angle < -100) stepCost += 100_000;
-                    }
-
-                    if (absAngle > 98) stepCost += Infinity;
-                    else if (angle < -45) stepCost += 2000;
-                    else if (angle > 45) stepCost += 500;
-                    else if (absAngle > 10) stepCost += 50;
                 }
 
                 if (stepCost < 1) stepCost = 1;
