@@ -351,7 +351,9 @@ export const useRouteController = (
         } catch (e) {
             console.log(`Route calculation Failed: ${e}`);
         } finally {
-            isCalculating.value = false;
+            setTimeout(() => {
+                isCalculating.value = false;
+            }, 500);
         }
     }
 

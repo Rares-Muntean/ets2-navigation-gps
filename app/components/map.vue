@@ -62,6 +62,7 @@ const {
     routeDistance,
     routeEta,
     endMarker,
+    isCalculating,
     initWorkerData,
 } = useRouteController(map, adjacency, nodeCoords);
 
