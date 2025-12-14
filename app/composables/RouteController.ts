@@ -4,8 +4,6 @@ import {
     lineString,
     nearestPointOnLine,
     point,
-    simplify,
-    length,
 } from "@turf/turf";
 import maplibregl from "maplibre-gl";
 import { getAngleDiff, getBearing } from "~/assets/utils/geographicMath";
@@ -17,10 +15,12 @@ export const useRouteController = (
     nodeCoords: Map<number, [number, number]>
 ) => {
     const { mergeClosePoints } = useRouting();
-    const { getGameLocationName, calculateGameRouteDetails } = useCityData();
+    const { getGameLocationName, buildRouteStatsCache } = useCityData();
     const { getClosestNodes } = useGraphSystem();
 
     const currentRoutePath = shallowRef<[number, number][] | null>(null);
+    const routeStatsCache = shallowRef<Float32Array | null>(null);
+
     const destinationName = ref<string>("");
     const routeDistance = ref<string>("");
     const routeEta = ref<string>("");
@@ -29,6 +29,8 @@ export const useRouteController = (
     const endNodeId = ref<number | null>(null);
     const lastMathPos = ref<[number, number] | null>(null);
     const isCalculating = ref(false);
+
+    const currentRouteIndex = ref(0);
 
     let worker: Worker | null = null;
 
@@ -172,7 +174,7 @@ export const useRouteController = (
         truckHeading: number,
         startType: "road" | "yard"
     ) {
-        const SEARCH_RADII = [5, 30, 60, 150];
+        const SEARCH_RADII = [1, 2, 4, 8, 16, 32, 100, 300];
 
         for (const radius of SEARCH_RADII) {
             const candidates = getClosestNodes(targetCoords, radius, 0.05);
@@ -195,17 +197,45 @@ export const useRouteController = (
         return null;
     }
 
-    // Merges close nodes and cleans them up for smoother route visualisation
+    function smoothPath(coords: [number, number][]): [number, number][] {
+        if (coords.length < 3) return coords;
+
+        const output: [number, number][] = [];
+
+        output.push(coords[0]!);
+
+        for (let i = 0; i < coords.length - 1; i++) {
+            const p0 = coords[i]!;
+            const p1 = coords[i + 1]!;
+
+            const q: [number, number] = [
+                0.75 * p0[0] + 0.25 * p1[0],
+                0.75 * p0[1] + 0.25 * p1[1],
+            ];
+
+            const r: [number, number] = [
+                0.25 * p0[0] + 0.75 * p1[0],
+                0.25 * p0[1] + 0.75 * p1[1],
+            ];
+
+            output.push(q);
+            output.push(r);
+        }
+
+        output.push(coords[coords.length - 1]!);
+
+        return output;
+    }
+
     function drawRouteOnMap(coords: [number, number][]) {
         if (!map.value) return;
 
-        let cleanCoords = mergeClosePoints(coords, 300);
+        let cleanCoords = mergeClosePoints(coords, 600);
 
-        const line = lineString(cleanCoords);
-        const simplifiedLine = simplify(line, {
-            tolerance: 0.0005,
-            highQuality: true,
-        });
+        let smoothed = smoothPath(cleanCoords);
+        smoothed = smoothPath(smoothed);
+
+        const line = lineString(smoothed);
 
         const source = map.value.getSource(
             "debug-route"
@@ -218,7 +248,7 @@ export const useRouteController = (
                     {
                         type: "Feature",
                         properties: {},
-                        geometry: simplifiedLine.geometry,
+                        geometry: line.geometry,
                     },
                 ],
             });
@@ -332,13 +362,20 @@ export const useRouteController = (
                 ];
                 currentRoutePath.value = stitchedPath;
 
+                const cache = buildRouteStatsCache(stitchedPath);
+                routeStatsCache.value = cache;
+
+                const lastIdx = (stitchedPath.length - 1) * 2;
+                const totalKm = cache[lastIdx]!;
+                const totalHours = cache[lastIdx + 1]!;
+
                 drawRouteOnMap(stitchedPath);
                 addDestinationMarker(result.endId);
 
-                const details = calculateGameRouteDetails(stitchedPath);
-                routeDistance.value = `${details.km} km`;
-
-                routeEta.value = details.time;
+                routeDistance.value = `${Math.round(totalKm)} km`;
+                const h = Math.floor(totalHours);
+                const m = Math.round((totalHours - h) * 60);
+                routeEta.value = `${h}h ${m}min`;
 
                 destinationName.value = getGameLocationName(
                     clickCoords[0],
@@ -352,52 +389,68 @@ export const useRouteController = (
         }
     }
 
+    function getSquaredDist(p1: [number, number], p2: [number, number]) {
+        const dx = p1[0] - p2[0];
+        const dy = p1[1] - p2[1];
+        return dx * dx + dy * dy;
+    }
+
     const updateRouteProgress = (truckCoords: [number, number]) => {
         if (!currentRoutePath.value || currentRoutePath.value.length < 2)
             return;
+        const cache = routeStatsCache.value;
+        if (!cache) return;
 
         if (lastMathPos.value) {
-            const d = distance(point(lastMathPos.value), point(truckCoords), {
-                units: "kilometers",
-            });
-            if (d < 0.01) return;
+            const sqDist = getSquaredDist(lastMathPos.value, truckCoords);
+            if (sqDist < 0.00000001) return;
         }
         lastMathPos.value = truckCoords;
 
-        try {
-            const routeLine = lineString(currentRoutePath.value);
-            const truckPt = point(truckCoords);
-            const snapped = nearestPointOnLine(routeLine, truckPt);
+        const path = currentRoutePath.value;
+        let bestIndex = currentRouteIndex.value;
+        let minSqDist = Infinity;
 
-            const lastPoint =
-                currentRoutePath.value[currentRoutePath.value.length - 1];
-            const remainingSection = lineSlice(
-                snapped,
-                point(lastPoint!),
-                routeLine
-            );
+        const searchLimit = Math.min(path.length, bestIndex + 50);
 
-            const remainingCoords = remainingSection.geometry.coordinates as [
-                number,
-                number
-            ][];
-
-            if (remainingCoords.length < 2) {
-                clearRouteState();
-                return;
+        for (let i = bestIndex; i < searchLimit; i++) {
+            const pt = path[i]!;
+            const d = getSquaredDist(truckCoords, pt);
+            if (d < minSqDist) {
+                minSqDist = d;
+                bestIndex = i;
+            } else {
+                if (i > bestIndex + 5) break;
             }
+        }
+        currentRouteIndex.value = bestIndex;
 
-            const details = calculateGameRouteDetails(remainingCoords);
+        const distToEndSq = getSquaredDist(truckCoords, path[path.length - 1]!);
+        if (distToEndSq < 0.00000025) {
+            clearRouteState();
+            return;
+        }
 
-            if (details.km < 1) {
-                clearRouteState();
-                return;
-            }
+        const lastIdx = (path.length - 1) * 2;
+        const currentIdx = bestIndex * 2;
 
-            routeDistance.value = `${details.km} km`;
-            routeEta.value = details.time;
-        } catch (e) {
-            console.error(e);
+        const totalKm = cache[lastIdx]!;
+        const totalHours = cache[lastIdx + 1]!;
+
+        const currentKm = cache[currentIdx]!;
+        const currentHours = cache[currentIdx + 1]!;
+
+        const remKm = totalKm - currentKm;
+        const remHours = totalHours - currentHours;
+
+        routeDistance.value = `${Math.round(remKm)} km`;
+
+        if (remHours > 0) {
+            const h = Math.floor(remHours);
+            const m = Math.round((remHours - h) * 60);
+            routeEta.value = `${h}h ${m}min`;
+        } else {
+            routeEta.value = "Arriving...";
         }
     };
 

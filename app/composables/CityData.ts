@@ -81,6 +81,52 @@ export function useCityData() {
         return 19;
     }
 
+    function buildRouteStatsCache(pathCoords: [number, number][]) {
+        const cache = new Float32Array(pathCoords.length * 2);
+
+        let totalGameKm = 0;
+        let totalGameHours = 0;
+
+        cache[0] = 0; // km
+        cache[1] = 0; // hours
+
+        for (let i = 0; i < pathCoords.length - 1; i++) {
+            const point1 = convertGeoToGame(
+                pathCoords[i]![0],
+                pathCoords[i]![1]
+            );
+            const point2 = convertGeoToGame(
+                pathCoords[i + 1]![0],
+                pathCoords[i + 1]![1]
+            );
+
+            const dx = point2[0] - point1[0];
+            const dy = point2[1] - point1[1];
+            const rawSegmentLength = Math.sqrt(dx * dx + dy * dy);
+
+            const midX = (point1[0] + point2[0]) / 2;
+            const midZ = (point1[1] + point2[1]) / 2;
+
+            // Same logic as in calculategameroute but much performant.
+            const multiplier = getScaleForLocation(midX, midZ);
+
+            const segmentKm = (rawSegmentLength * multiplier) / 1000;
+            totalGameKm += segmentKm;
+
+            let segmentSpeed = 70;
+            if (multiplier === 3) segmentSpeed = 35;
+
+            const segmentHours = segmentKm / segmentSpeed;
+            totalGameHours += segmentHours;
+
+            const nextIdx = (i + 1) * 2;
+            cache[nextIdx] = totalGameKm;
+            cache[nextIdx + 1] = totalGameHours;
+        }
+
+        return cache;
+    }
+
     function calculateGameRouteDetails(pathCoords: [number, number][]) {
         let totalGameKm = 0;
         let totalGameHours = 0;
@@ -192,6 +238,7 @@ export function useCityData() {
     return {
         loadLocationData,
         getGameLocationName,
+        buildRouteStatsCache,
         calculateGameRouteDetails,
     };
 }
