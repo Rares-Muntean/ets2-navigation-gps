@@ -180,7 +180,7 @@ export const useRouteController = (
         const SEARCH_RADII = [1, 2, 4, 8, 16, 32, 100, 300];
 
         for (const radius of SEARCH_RADII) {
-            const candidates = getClosestNodes(targetCoords, radius, 0.05);
+            const candidates = getClosestNodes(targetCoords, radius, 0.1);
 
             if (candidates.length === 0) continue;
 

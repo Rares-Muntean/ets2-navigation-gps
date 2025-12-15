@@ -1,23 +1,36 @@
 <script lang="ts" setup>
 import { AppSettings } from "~~/shared/variables/appSettings";
 
-defineProps<{
+const props = defineProps<{
     isSheetExpanded: boolean;
+    isSheetHidden: boolean;
     truckSpeed: number;
     speedLimit: number;
     destinationName: string;
     routeEta: string;
     routeDistance: string;
-    onToggleSheet: () => void;
     clearRouteState: () => void;
     onStartNavigation: () => void;
 }>();
+
+const emit = defineEmits<{
+    (e: "update:isSheetHidden", value: boolean): void;
+    (e: "update:isSheetExpanded", value: boolean): void;
+}>();
+
+const onToggleSheetHidden = () => {
+    emit("update:isSheetHidden", !props.isSheetHidden);
+};
+
+function onToggleSheet() {
+    emit("update:isSheetExpanded", !props.isSheetExpanded);
+}
 </script>
 
 <template>
     <div
         class="bottom-sheet"
-        :class="{ 'is-expanded': isSheetExpanded }"
+        :class="{ 'is-expanded': isSheetExpanded, 'is-hidden': isSheetHidden }"
         :style="{
             '--theme-color': AppSettings.theme.defaultColor,
         }"
@@ -33,11 +46,30 @@ defineProps<{
         </div>
 
         <div class="sheet-body">
+            <div class="hide-sheet">
+                <button
+                    v-if="!isSheetExpanded"
+                    @click.prevent="onToggleSheetHidden"
+                    class="hide-sheet-btn nav-btn"
+                >
+                    <Icon
+                        :name="
+                            isSheetHidden
+                                ? 'bxs:chevron-up'
+                                : 'bxs:chevron-down'
+                        "
+                        class="chevron-icon"
+                        size="18"
+                    />
+                    {{ isSheetHidden ? "Show" : "Hide" }}
+                </button>
+            </div>
+
             <div class="top-row">
                 <div class="trip-info" @click="onToggleSheet">
                     <h2 class="dest-name">{{ destinationName }}</h2>
 
-                    <div class="mini-stats" v-if="!isSheetExpanded">
+                    <div class="mini-stats">
                         <span class="eta">{{ routeEta }}</span>
                         <span class="dist">({{ routeDistance }})</span>
                     </div>

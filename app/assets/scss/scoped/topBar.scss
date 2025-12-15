@@ -17,6 +17,10 @@
     border-bottom: 3px solid $secondaryColor;
 
     background-color: $primaryColor;
+
+    @media (orientation: landscape) {
+        padding: 0px 22px 0px 15px;
+    }
 }
 
 .truck-info {

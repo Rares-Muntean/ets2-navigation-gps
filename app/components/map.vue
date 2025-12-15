@@ -12,6 +12,7 @@ const map = shallowRef<maplibregl.Map | null>(null);
 
 // UI STATE
 const isSheetExpanded = ref(false);
+const isSheetHidden = ref(false);
 
 // TRUCK STATE
 const truckMarkerComponent = ref<InstanceType<typeof TruckMarker> | null>(null);
@@ -150,10 +151,7 @@ function onStartNavigation() {
     );
 
     isSheetExpanded.value = false;
-}
-
-function onToggleSheet() {
-    isSheetExpanded.value = !isSheetExpanded.value;
+    isSheetHidden.value = true;
 }
 </script>
 
@@ -189,10 +187,10 @@ function onToggleSheet() {
             <SheetSlide
                 v-if="endMarker"
                 :clear-route-state="clearRouteState"
-                :on-toggle-sheet="onToggleSheet"
                 :on-start-navigation="onStartNavigation"
                 :destination-name="destinationName"
-                :is-sheet-expanded="isSheetExpanded"
+                v-model:is-sheet-expanded="isSheetExpanded"
+                v-model:is-sheet-hidden="isSheetHidden"
                 :route-distance="routeDistance"
                 :route-eta="routeEta"
                 :speed-limit="speedLimit"

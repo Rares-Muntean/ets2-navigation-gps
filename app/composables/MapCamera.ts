@@ -30,6 +30,7 @@ export const useMapCamera = (map: Ref<Map | null>) => {
             pitch: map.value.getPitch(),
             zoom: map.value.getZoom(),
             duration: 300,
+            offset: [0, 50],
             easing: (t) => t,
         });
     };
@@ -44,11 +45,16 @@ export const useMapCamera = (map: Ref<Map | null>) => {
         isNavigating.value = true;
         isCameraLocked.value = true;
 
-        map.value.jumpTo({
+        map.value.easeTo({
             center: coords,
-            zoom: 10,
-            pitch: 45,
-            bearing: heading,
+            bearing: isNavigating.value ? heading : 0,
+            pitch: 35,
+            zoom: map.value.getZoom(),
+
+            duration: 0,
+
+            offset: [0, 50],
+            easing: (t) => t,
         });
     };
 
