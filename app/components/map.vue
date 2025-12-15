@@ -179,14 +179,16 @@ function onSheetClosed() {
 
         <HudButton icon-name="fe:target" :lock-camera="lockCamera" />
 
-        <Transition name="bottom-circle">
-            <SpeedLimit
-                v-if="!endMarker"
-                :truck-speed="truckSpeed"
-                :speed-limit="speedLimit"
-                variant="bottom"
-            />
-        </Transition>
+        <SpeedLimit
+            :class="{
+                'pos-default': !endMarker || isSheetHidden,
+                'pos-expanded': isSheetExpanded && endMarker,
+                'pos-collapsed':
+                    !isSheetExpanded && endMarker && !isSheetHidden,
+            }"
+            :truck-speed="truckSpeed"
+            :speed-limit="speedLimit"
+        />
 
         <Transition name="sheet-slide" @after-leave="onSheetClosed">
             <SheetSlide

@@ -2,16 +2,11 @@
 defineProps<{
     truckSpeed: number;
     speedLimit: number;
-    variant: "sheet" | "bottom";
 }>();
 </script>
 
 <template>
-    <div
-        v-if="speedLimit !== 0"
-        class="speed-limit-circle"
-        :class="`speed-limit-circle-${variant}`"
-    >
+    <div v-if="speedLimit !== 0" class="speed-limit-circle">
         <Transition name="over-limit">
             <div
                 v-if="truckSpeed > speedLimit + 5"

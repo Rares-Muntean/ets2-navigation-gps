@@ -68,13 +68,14 @@
 // SHEET SLIDE TRANSITIONS
 .sheet-slide-enter-active,
 .sheet-slide-leave-active {
-    transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
-        opacity 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 .sheet-slide-enter-from,
 .sheet-slide-leave-to {
-    transform: translateY(60%);
+    transform: translateY(100%);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0);
+
     opacity: 0;
 }
 
@@ -87,25 +88,6 @@
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
-}
-
-// SPEED LIMIT CIRCLE TRANSITIONS
-.bottom-circle-enter-active,
-.bottom-circle-leave-active {
-    transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
-        opacity 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-}
-
-.bottom-circle-enter-from,
-.bottom-circle-leave-to {
-    transform: translateY(-10px);
-    opacity: 0;
-}
-
-.bottom-circle-enter-to,
-.bottom-circle-leave-from {
-    opacity: 1;
-    transform: translateY(0);
 }
 
 .over-limit-enter-active,

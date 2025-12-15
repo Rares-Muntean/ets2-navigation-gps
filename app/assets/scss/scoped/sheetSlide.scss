@@ -149,18 +149,18 @@ $compact-bar-height: 35px;
 
     display: flex;
     flex-direction: column;
-    transition: 0.4s ease;
+    transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 
     &.is-expanded {
         .expanded-content {
             max-height: 300px;
             opacity: 1;
             margin-top: 10px;
+            transition: 1s cubic-bezier(0.165, 0.84, 0.44, 1);
         }
 
         .mini-stats {
             opacity: 0;
-            max-height: 0;
         }
 
         .drag-pill {
@@ -194,7 +194,7 @@ $compact-bar-height: 35px;
     max-height: 0;
     opacity: 0;
     overflow: hidden;
-    transition: max-height 0.4s ease, opacity 0.3s ease;
+    transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 .chevron-icon {

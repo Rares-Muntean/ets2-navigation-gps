@@ -10,16 +10,6 @@ $speed-limit-height: 72px;
     font-weight: 800;
 }
 
-.speed-limit-circle-sheet {
-    top: calc(-1 * $speed-limit-height - 25px);
-    left: 20px;
-}
-
-.speed-limit-circle-bottom {
-    bottom: 25px;
-    left: 20px;
-}
-
 .speed-limit {
     color: #272d39;
     font-weight: 800;
@@ -33,6 +23,9 @@ $speed-limit-height: 72px;
 
 .speed-limit-circle {
     position: absolute;
+    bottom: 25px;
+    left: 22px;
+    transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 
     border: 5px solid $red-color;
 
@@ -44,6 +37,30 @@ $speed-limit-height: 72px;
     display: flex;
     justify-content: center;
     align-items: center;
+
+    &.pos-default {
+        bottom: 25px;
+    }
+
+    &.pos-collapsed {
+        @media (orientation: landscape) {
+            bottom: 90px;
+        }
+
+        @media (orientation: portrait) {
+            bottom: 108px;
+        }
+    }
+
+    &.pos-expanded {
+        @media (orientation: landscape) {
+            bottom: 226px;
+        }
+
+        @media (orientation: portrait) {
+            bottom: 244px;
+        }
+    }
 }
 
 .speed-limit-circle-over-limit {

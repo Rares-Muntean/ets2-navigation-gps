@@ -35,12 +35,6 @@ function onToggleSheet() {
             '--theme-color': AppSettings.theme.defaultColor,
         }"
     >
-        <SpeedLimit
-            :truck-speed="truckSpeed"
-            :speed-limit="speedLimit"
-            variant="sheet"
-        />
-
         <div class="sheet-header" @click="onToggleSheet">
             <div class="drag-pill"></div>
         </div>
