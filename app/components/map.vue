@@ -63,9 +63,22 @@ const {
     routeDistance,
     routeEta,
     endMarker,
-    isCalculating,
+    isCalculating: isCalculatingRoute,
     initWorkerData,
+    routeFound,
 } = useRouteController(map, adjacency, nodeCoords);
+
+// We set the routeFound back to null with a delay if its true / false.
+let uiTimer: ReturnType<typeof setTimeout> | null = null;
+watch(routeFound, (newVal) => {
+    if (newVal !== null) {
+        if (uiTimer) clearTimeout(uiTimer);
+
+        uiTimer = setTimeout(() => {
+            routeFound.value = null;
+        }, 1000);
+    }
+});
 
 watch([loading, gameConnected], ([isLoading, isGameConnected]) => {
     if (!isLoading) {
@@ -177,7 +190,10 @@ function onSheetClosed() {
             :truck-speed="truckSpeed"
         />
 
-        <Notification />
+        <NotificationRoute
+            :is-route-found="routeFound"
+            :is-calculating-route="isCalculatingRoute"
+        />
 
         <HudButton icon-name="fe:target" :lock-camera="lockCamera" />
 

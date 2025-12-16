@@ -21,7 +21,9 @@ export const useRouteController = (
     const startNodeId = ref<number | null>(null);
     const endNodeId = ref<number | null>(null);
     const lastMathPos = ref<[number, number] | null>(null);
+
     const isCalculating = ref(false);
+    const routeFound = ref<boolean | null>(null);
 
     const currentRouteIndex = ref(0);
 
@@ -291,6 +293,7 @@ export const useRouteController = (
         if (adjacency.size === 0 || isCalculating.value) return;
 
         isCalculating.value = true;
+        routeFound.value = null;
 
         try {
             const startConfig = findBestStartConfiguration(
@@ -347,13 +350,20 @@ export const useRouteController = (
                     clickCoords[0],
                     clickCoords[1]
                 );
+
+                routeFound.value = true;
+            } else {
+                routeFound.value = false;
             }
         } catch (e) {
             console.log(`Route calculation Failed: ${e}`);
         } finally {
-            setTimeout(() => {
-                isCalculating.value = false;
-            }, 500);
+            isCalculating.value = false;
+
+            //
+            // setTimeout(() => {
+            //     routeFound.value = null;
+            // }, 2000);
         }
     }
 
@@ -447,6 +457,7 @@ export const useRouteController = (
         routeEta,
         endMarker,
         isCalculating,
+        routeFound,
         currentRoutePath,
         initWorkerData,
         setupRouteLayer,

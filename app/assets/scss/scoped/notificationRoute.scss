@@ -1,0 +1,84 @@
+$notification-height: 20px;
+
+//
+//
+//
+// =====> STYLING <======
+.notification-container {
+    position: absolute;
+    top: calc($game-info-bar-height + 15px);
+    left: 0;
+    width: 100%;
+
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.notification-wrapper {
+    width: 210px;
+
+    border: 2px solid $secondaryColor;
+    border-radius: 8px;
+
+    background-color: $primaryColor;
+    padding: 6px 12px;
+    color: $white-font-text;
+    font-size: 1.6rem;
+
+    height: 42px;
+    display: flex;
+    align-items: center;
+}
+
+.content-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.notification-icon {
+    &.found {
+        color: $green-color;
+    }
+
+    &.failed {
+        color: $red-color;
+    }
+
+    &.loading {
+        color: #7c3aed;
+    }
+}
+
+//
+//
+//
+// ======> TRANSITIONS <======
+
+.notification-slide-enter-active {
+    transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.notification-slide-leave-active {
+    transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) 0s;
+}
+
+.notification-slide-enter-from,
+.notification-slide-leave-to {
+    transform: translateY(-$notification-height);
+    opacity: 0;
+}
+
+.notification-fade-enter-active,
+.notification-fade-leave-active {
+    transition: 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.notification-fade-enter-from,
+.notification-fade-leave-to {
+    opacity: 0;
+}
