@@ -24,6 +24,7 @@ export function useEtsTelemetry() {
     // NAVIGATION STATE
     const speedLimit = ref<number>(0);
     const fuel = ref<number>(0);
+    const hasInGameMarker = ref(false);
 
     let lastPosition: [number, number] | null = null;
     let headingOffset = 0;
@@ -99,7 +100,8 @@ export function useEtsTelemetry() {
             speedLimit: number,
             speedKmh: number,
             gas: string,
-            restStoptime: string
+            restStoptime: string,
+            inGameMarker: boolean
         ) => void
     ) {
         const wasConnected = gameConnected.value;
@@ -110,9 +112,10 @@ export function useEtsTelemetry() {
         speedLimit.value = 0;
         fuel.value = 0;
         restStoptime.value = "0";
+        hasInGameMarker.value = false;
 
         if (onUpdate && wasConnected) {
-            onUpdate([0, 0], 0, "", false, 0, 0, "0", "0");
+            onUpdate([0, 0], 0, "", false, 0, 0, "0", "0", false);
         }
     }
 
@@ -126,28 +129,38 @@ export function useEtsTelemetry() {
             speedLimit: number,
             speedKmh: number,
             gas: string,
-            restStoptime: string
+            restStoptime: string,
+            inGameMarker: boolean
         ) => void
     ) {
+        // Truck Placement
         const { x, z } = data.truck.placement;
         const rawGameHeading = data.truck.placement.heading;
-        const speedKmh = Math.max(0, Math.floor(data.truck.speed));
         const currentCoords = convertGameToGeo(x, z);
 
+        // Truck speed
+        const speedKmh = Math.max(0, Math.floor(data.truck.speed));
+
+        // Game Connected
+        const connected = data.game.connected;
+
+        // Has a destionation in Game (Excludin Jobs)
+        const inGameMarker =
+            data.navigation.estimatedDistance > 100 && data.job.income === 0;
+
+        // Game Time
         const { formatted: formattedTime, raw } = convertTelemtryTime(
             data.game.time
         );
         const day = raw.toUTCString().slice(0, 3);
         const time = `${day} ${formattedTime}`;
 
-        const connected = data.game.connected;
+        // Speed Limit + Fuel + Next Rest Stop Time
         const sLimit = data.navigation.speedLimit;
         const gas = data.truck.fuel.toFixed(1);
-
         const { formatted: restTime, raw: restRaw } = convertTelemtryTime(
             data.game.nextRestStopTime
         );
-
         const minutes = restRaw.getUTCHours() * 60 + restRaw.getUTCMinutes();
 
         // Calculate heading correctly.
@@ -185,8 +198,10 @@ export function useEtsTelemetry() {
         restStoptime.value = restTime;
         restStopMinutes.value = minutes;
 
-        // Navigation state
+        // Navigation state.
         speedLimit.value = sLimit;
+        hasInGameMarker.value = inGameMarker;
+        console.log(hasInGameMarker);
 
         lastPosition = currentCoords;
 
@@ -199,7 +214,8 @@ export function useEtsTelemetry() {
                 sLimit,
                 speedKmh,
                 gas,
-                restTime
+                restTime,
+                inGameMarker
             );
         }
     }
@@ -217,6 +233,7 @@ export function useEtsTelemetry() {
         speedLimit,
         restStoptime,
         gameTime,
+        hasInGameMarker,
         restStopMinutes,
         startTelemetry,
         stopTelemetry,
