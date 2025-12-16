@@ -229,7 +229,10 @@ function onSheetClosed() {
             />
         </Transition>
 
-        <TruckMarker ref="truckMarkerComponent" />
+        <TruckMarker
+            :is-camera-locked="isCameraLocked"
+            ref="truckMarkerComponent"
+        />
     </div>
 </template>
 

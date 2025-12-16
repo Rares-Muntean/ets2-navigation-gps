@@ -95,37 +95,57 @@ export const useRouteController = (
     function findBestStartConfiguration(
         truckCoords: [number, number],
         truckHeading: number,
-        searchRadius: number = 5
+        _ignoredLimit: number = 20
     ) {
         const truckPt = point(truckCoords);
+        const normalizedTruckHeading = ((truckHeading % 360) + 360) % 360;
 
-        // Try to find a road first
-        const roadCandidates = getClosestNodes(truckCoords, searchRadius, 0.03);
-        let bestRoadEdge = null;
-        let minRoadDist = Infinity;
+        if (adjacency.size === 0 || nodeCoords.size === 0) {
+            console.error("CRITICAL: Graph data is empty!");
+            return null;
+        }
 
-        for (const nodeId of roadCandidates) {
-            const neighbors = adjacency.get(nodeId);
-            const nodePos = nodeCoords.get(nodeId);
-            if (!neighbors || !nodePos) continue;
+        const nearbyNodes = getClosestNodes(truckCoords, 100, 0.1);
+
+        if (nearbyNodes.length === 0) {
+            console.error(
+                "CRITICAL: Quadtree returned 0 nodes near truck.",
+                truckCoords
+            );
+            return null;
+        }
+
+        let bestEdge = null;
+        let minScore = Infinity;
+
+        for (const fromNodeId of nearbyNodes) {
+            const neighbors = adjacency.get(fromNodeId);
+            const fromPos = nodeCoords.get(fromNodeId);
+            if (!neighbors || !fromPos) continue;
 
             for (const edge of neighbors) {
-                const neighborPos = nodeCoords.get(edge.to);
-                if (!neighborPos) continue;
+                const toPos = nodeCoords.get(edge.to);
+                if (!toPos) continue;
 
-                const roadBearing = getBearing(nodePos, neighborPos);
-                const angleDiff = getAngleDiff(truckHeading, roadBearing);
-                if (angleDiff > 90) continue;
+                let roadBearing = getBearing(fromPos, toPos);
+                roadBearing = ((roadBearing % 360) + 360) % 360;
 
-                const roadLine = lineString([nodePos, neighborPos]);
+                let diff = Math.abs(normalizedTruckHeading - roadBearing);
+                if (diff > 180) diff = 360 - diff;
+
+                const roadLine = lineString([fromPos, toPos]);
                 const snapped = nearestPointOnLine(roadLine, truckPt);
-                const dist = snapped.properties.dist;
+                const distKm = snapped.properties.dist;
 
-                if (dist !== undefined && dist < 0.02 && dist < minRoadDist) {
-                    minRoadDist = dist;
-                    bestRoadEdge = {
+                if (distKm === undefined) continue;
+
+                const score = distKm + diff * 0.001;
+
+                if (score < minScore) {
+                    minScore = score;
+                    bestEdge = {
                         type: "road",
-                        fromId: nodeId,
+                        fromId: fromNodeId,
                         toId: edge.to,
                         projectedCoords: snapped.geometry.coordinates as [
                             number,
@@ -136,7 +156,7 @@ export const useRouteController = (
             }
         }
 
-        if (bestRoadEdge) return bestRoadEdge;
+        if (bestEdge) return bestEdge;
 
         const yardCandidates = getClosestNodes(truckCoords, 20, 0.3);
         let closestNodeId: number | null = null;

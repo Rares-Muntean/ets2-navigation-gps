@@ -4,10 +4,12 @@ import { AppSettings } from "~~/shared/variables/appSettings";
 
 const markerElement = ref<HTMLElement | null>(null);
 defineExpose({ markerElement });
+defineProps<{ isCameraLocked: boolean }>();
 </script>
 
 <template>
     <div style="display: none">
+        <!-- TODO (after Capacitor build): If the camera is locked, add the class .is-smooth -->
         <div ref="markerElement" class="truck-marker">
             <svg
                 width="48"
