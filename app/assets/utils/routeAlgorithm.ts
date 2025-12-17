@@ -177,12 +177,13 @@ export const calculateRoute = (
                     stepCost += 10;
                     const dir = getBearing([cLng, cLat], [nLng, nLat]);
                     const diff = getAngleDiff(startHeading, dir);
-                    if (diff > 90) stepCost += 10_000_000;
+                    if (diff > 75) stepCost += 10_000_000;
                     else if (diff > 45) stepCost += 1000;
                 } else {
                     const dir = getBearing([cLng, cLat], [nLng, nLat]);
                     const diff = getAngleDiff(startHeading, dir);
-                    if (diff > 90) stepCost += 10_000_000;
+                    console.log(diff);
+                    if (diff > 75) stepCost += 10_000_000;
                     else if (diff > 45) stepCost += 1000;
                 }
             } else if (prevId !== -1) {
@@ -210,7 +211,7 @@ export const calculateRoute = (
                 let tempPrev = prevId;
                 let traveledDist = 0;
 
-                for (let k = 0; k < 6; k++) {
+                for (let k = 0; k < 30; k++) {
                     const grandPrev = cache_previous[tempPrev]!;
                     if (grandPrev === -1) break;
 

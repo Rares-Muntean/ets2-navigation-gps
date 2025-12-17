@@ -1,6 +1,11 @@
 import { distance, lineString, nearestPointOnLine, point } from "@turf/turf";
 import maplibregl from "maplibre-gl";
-import { getAngleDiff, getBearing } from "~/assets/utils/geographicMath";
+import {
+    getBearing,
+    getSqDistToSegment,
+    DEVIATION_THRESHOLD_SQ,
+    getSquaredDist,
+} from "~/assets/utils/geographicMath";
 import { AppSettings } from "~~/shared/variables/appSettings";
 
 export const useRouteController = (
@@ -17,6 +22,8 @@ export const useRouteController = (
     const destinationName = ref<string>("");
     const routeDistance = ref<string>("");
     const routeEta = ref<string>("");
+
+    const savedDestination = ref<[number, number] | null>(null);
 
     const endMarker = ref<maplibregl.Marker | null>(null);
     const isRouteActive = ref(false);
@@ -319,6 +326,8 @@ export const useRouteController = (
         isCalculating.value = true;
         routeFound.value = null;
 
+        savedDestination.value = clickCoords;
+
         try {
             const startConfig = findBestStartConfiguration(
                 truckCoords,
@@ -334,11 +343,10 @@ export const useRouteController = (
             }
 
             startNodeId.value = startConfig.toId;
-            console.log(clickCoords); // Keep for debugging map roads.
 
             const result = await findFlexibleRoute(
                 startNodeId.value!,
-                clickCoords,
+                toRaw(clickCoords),
                 truckHeading,
                 startConfig.type as "road" | "yard",
                 startConfig.projectedCoords
@@ -379,6 +387,7 @@ export const useRouteController = (
                 );
 
                 routeFound.value = true;
+                currentRouteIndex.value = 0;
             } else {
                 routeFound.value = false;
             }
@@ -390,13 +399,10 @@ export const useRouteController = (
         }
     }
 
-    function getSquaredDist(p1: [number, number], p2: [number, number]) {
-        const dx = p1[0] - p2[0];
-        const dy = p1[1] - p2[1];
-        return dx * dx + dy * dy;
-    }
-
-    const updateRouteProgress = (truckCoords: [number, number]) => {
+    const updateRouteProgress = (
+        truckCoords: [number, number],
+        truckHeading: number
+    ) => {
         if (!currentRoutePath.value || currentRoutePath.value.length < 2)
             return;
         const cache = routeStatsCache.value;
@@ -404,7 +410,7 @@ export const useRouteController = (
 
         if (lastMathPos.value) {
             const sqDist = getSquaredDist(lastMathPos.value, truckCoords);
-            if (sqDist < 0.00000001) return;
+            if (sqDist < 0.000000001) return;
         }
         lastMathPos.value = truckCoords;
 
@@ -412,19 +418,36 @@ export const useRouteController = (
         let bestIndex = currentRouteIndex.value;
         let minSqDist = Infinity;
 
-        const searchLimit = Math.min(path.length, bestIndex + 50);
+        const searchLimit = Math.min(path.length - 1, bestIndex + 50);
+        const startSearch = Math.max(0, bestIndex - 5);
 
-        for (let i = bestIndex; i < searchLimit; i++) {
-            const pt = path[i]!;
-            const d = getSquaredDist(truckCoords, pt);
-            if (d < minSqDist) {
-                minSqDist = d;
+        for (let i = startSearch; i < searchLimit; i++) {
+            const distSq = getSqDistToSegment(
+                truckCoords,
+                path[i]!,
+                path[i + 1]!
+            );
+
+            if (distSq < minSqDist) {
+                minSqDist = distSq;
                 bestIndex = i;
-            } else {
-                if (i > bestIndex + 5) break;
             }
         }
+
         currentRouteIndex.value = bestIndex;
+
+        if (minSqDist > DEVIATION_THRESHOLD_SQ) {
+            if (!isCalculating.value && savedDestination.value) {
+                console.log("Deviation detected! Recalculating...");
+                handleRouteClick(
+                    toRaw(savedDestination.value),
+                    truckCoords,
+                    truckHeading,
+                    false // TODO: GET IF ITS A JOB OR NOT (FALSE FOR JOB, TRUE FOR MANUAL ENDMARK)
+                );
+                return;
+            }
+        }
 
         const distToEndSq = getSquaredDist(truckCoords, path[path.length - 1]!);
         if (distToEndSq < 0.00000025) {
@@ -474,6 +497,7 @@ export const useRouteController = (
 
         endNodeId.value = null;
         currentRoutePath.value = null;
+        savedDestination.value = null;
     }
 
     return {

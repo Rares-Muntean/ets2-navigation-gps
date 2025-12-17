@@ -69,7 +69,6 @@ const {
     destinationName,
     routeDistance,
     routeEta,
-    endMarker,
     isCalculating: isCalculatingRoute,
     initWorkerData,
     isRouteActive,
@@ -180,6 +179,9 @@ onMounted(async () => {
         });
 
         map.value.on("click", async (e) => {
+            console.log(
+                ` ${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`
+            ); // KEEP FOR DEBUGGING BUGGED AREAS
             if (hasActiveJob.value) return;
             if (!truckMarker.value) return;
 
@@ -209,8 +211,8 @@ function telemetryClick() {
 
     followTruck(truckCoords.value, truckHeading.value);
 
-    if (endMarker.value) {
-        updateRouteProgress(truckCoords.value);
+    if (isRouteActive.value) {
+        updateRouteProgress(truckCoords.value, truckHeading.value);
     }
 }
 
@@ -258,10 +260,10 @@ function onSheetClosed() {
 
         <SpeedLimit
             :class="{
-                'pos-default': !endMarker || isSheetHidden,
-                'pos-expanded': isSheetExpanded && endMarker,
+                'pos-default': !isRouteActive || isSheetHidden,
+                'pos-expanded': isSheetExpanded && isRouteActive,
                 'pos-collapsed':
-                    !isSheetExpanded && endMarker && !isSheetHidden,
+                    !isSheetExpanded && isRouteActive && !isSheetHidden,
             }"
             :truck-speed="truckSpeed"
             :speed-limit="speedLimit"
@@ -269,7 +271,7 @@ function onSheetClosed() {
 
         <WarningSlide
             :has-in-game-marker="hasInGameMarker"
-            :has-marker="endMarker ? true : false"
+            :has-marker="isRouteActive ? true : false"
         />
 
         <Transition name="sheet-slide" @after-leave="onSheetClosed">
