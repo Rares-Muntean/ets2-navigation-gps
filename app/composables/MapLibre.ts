@@ -15,12 +15,17 @@ export async function initializeMap(
     const protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    const ROADS_URL = `${window.location.origin}/map-data/tiles/roads.mp3`;
-    const response = await fetch(ROADS_URL);
-    const blob = await response.blob();
+    async function loadPmtiles(fileName: string, key: string) {
+        const url = `${window.location.origin}/map-data/tiles/${fileName}.mp3`;
+        const response = await fetch(url);
+        const blob = await response.blob();
 
-    const pmtilesInstance = new PMTiles(new BlobSource(blob));
-    protocol.add(pmtilesInstance);
+        const pmtilesInstance = new PMTiles(new BlobSource(blob, key));
+        protocol.add(pmtilesInstance);
+    }
+
+    await loadPmtiles("roads", "roads");
+    await loadPmtiles("ets2-footprints", "ets2-footprints");
 
     const style: StyleSpecification = {
         version: 8,
@@ -31,6 +36,11 @@ export async function initializeMap(
                 type: "vector",
 
                 url: `pmtiles://roads`,
+            },
+
+            "ets2-footprints": {
+                type: "vector",
+                url: `pmtiles://ets2-footprints`,
             },
         },
 
@@ -55,8 +65,6 @@ export async function initializeMap(
             },
         ],
     };
-
-    console.log("CREATING MAP CONSTANT");
 
     const map = new maplibregl.Map({
         container,
@@ -124,12 +132,6 @@ export async function initializeMap(
         map.addSource("ets2-water", {
             type: "geojson",
             data: "map-data/ets2-water.geojson",
-        });
-
-        // FOOTPRINTS (BUILDINGS SHAPE)
-        map.addSource("ets2-footprints", {
-            type: "vector",
-            url: "pmtiles://map-data/tiles/ets2-footprints.mp3",
         });
 
         // VILLAGE LABELS
@@ -880,15 +882,20 @@ export async function initializeMap(
 
 class BlobSource {
     blob: Blob;
-    constructor(blob: Blob) {
+    key: string;
+
+    constructor(blob: Blob, key: string) {
         this.blob = blob;
+        this.key = key;
     }
+
     async getBytes(offset: number, length: number) {
         const slice = this.blob.slice(offset, offset + length);
         const arrayBuffer = await slice.arrayBuffer();
         return { data: arrayBuffer };
     }
+
     getKey() {
-        return "roads";
+        return this.key;
     }
 }
