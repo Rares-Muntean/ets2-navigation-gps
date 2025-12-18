@@ -3,7 +3,7 @@ import type { TelemetryData } from "../../shared/types/Telemetry/TelemetryData";
 import { convertGameToGeo } from "~/assets/utils/gameToGeo";
 import { getBearing } from "~/assets/utils/geographicMath";
 import { convertTelemtryTime } from "~/assets/utils/helpers";
-import { CapacitorHttp } from "@capacitor/core";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 
 export interface TelemetryUpdate {
     truck: TruckState;
@@ -127,31 +127,52 @@ export function useEtsTelemetry() {
             const startTime = performance.now();
 
             try {
-                const response = await CapacitorHttp.get({
-                    url: "http://192.168.1.226:25555/api/ets2/telemetry",
-                    connectTimeout: 1000,
-                });
+                if (Capacitor.isNativePlatform()) {
+                    const response = await CapacitorHttp.get({
+                        url: "http://192.168.1.226:25555/api/ets2/telemetry",
+                        connectTimeout: 1000,
+                    });
 
-                if (abortController) abortController.abort();
-                abortController = new AbortController();
-                const timeoutId = setTimeout(
-                    () => abortController?.abort(),
-                    1000
-                );
+                    if (response.status === 200) {
+                        const telemetryData = response.data;
 
-                clearTimeout(timeoutId);
-
-                if (response.status === 200) {
-                    const telemetryData = response.data;
-
-                    if (telemetryData && telemetryData.game?.connected) {
-                        isTelemetryConnected.value = true;
-                        processData(telemetryData, onUpdate);
+                        if (telemetryData && telemetryData.game?.connected) {
+                            isTelemetryConnected.value = true;
+                            processData(telemetryData, onUpdate);
+                        } else {
+                            resetDataOnDisconnected(onUpdate);
+                        }
                     } else {
-                        resetDataOnDisconnected(onUpdate);
+                        isTelemetryConnected.value = false;
                     }
                 } else {
-                    isTelemetryConnected.value = false;
+                    if (abortController) abortController.abort();
+                    abortController = new AbortController();
+                    const timeoutId = setTimeout(
+                        () => abortController?.abort(),
+                        1000
+                    );
+
+                    const response = await fetch("/api/ets2", {
+                        signal: abortController.signal,
+                        cache: "no-cache",
+                        headers: { Pragma: "no-cache" },
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (
+                            result.connected &&
+                            result.telemetry.game?.connected
+                        ) {
+                            isTelemetryConnected.value = true;
+                            processData(result.telemetry, onUpdate);
+                        } else {
+                            resetDataOnDisconnected(onUpdate);
+                        }
+                    }
                 }
             } catch (err) {
                 if (err instanceof Error && err.name !== "AbortError") {
