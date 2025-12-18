@@ -3,10 +3,10 @@ type PackedEdge = [number, number, number, number];
 
 export async function loadGraph() {
     const [packedNodes, packedEdges] = await Promise.all([
-        fetch("/debug-roadnetwork/nodes.json").then(
+        fetch("/debug-roadnetwork/nodes.mp3").then(
             (r) => r.json() as Promise<PackedNode[]>
         ),
-        fetch("/debug-roadnetwork/edges.json").then(
+        fetch("/debug-roadnetwork/edges.mp3").then(
             (r) => r.json() as Promise<PackedEdge[]>
         ),
     ]);

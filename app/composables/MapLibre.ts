@@ -7,15 +7,20 @@ export async function initializeMap(
 ): Promise<MapLibreGl> {
     const appTheme = AppSettings.theme;
 
+    const baseUrl = window.location.origin;
+
     const maplibregl = (await import("maplibre-gl")).default;
     const { Protocol, PMTiles } = await import("pmtiles");
 
     const protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    const PMTILES_URL = "/map-data/tiles/roads.pmtiles";
-    const pmtiles = new PMTiles(PMTILES_URL);
-    protocol.add(pmtiles);
+    const ROADS_URL = `${window.location.origin}/map-data/tiles/roads.mp3`;
+    const response = await fetch(ROADS_URL);
+    const blob = await response.blob();
+
+    const pmtilesInstance = new PMTiles(new BlobSource(blob));
+    protocol.add(pmtilesInstance);
 
     const style: StyleSpecification = {
         version: 8,
@@ -25,11 +30,11 @@ export async function initializeMap(
             ets2: {
                 type: "vector",
 
-                url: `pmtiles://${PMTILES_URL}`,
+                url: `pmtiles://roads`,
             },
         },
 
-        sprite: window.location.origin + "/sprites/sprites",
+        sprite: `${baseUrl}/sprites/sprites`,
 
         layers: [
             {
@@ -51,6 +56,8 @@ export async function initializeMap(
         ],
     };
 
+    console.log("CREATING MAP CONSTANT");
+
     const map = new maplibregl.Map({
         container,
         style,
@@ -59,12 +66,24 @@ export async function initializeMap(
         minZoom: 5,
         maxZoom: 11.5,
         maxPitch: 45,
-        localIdeographFontFamily: "Quicksand",
+        // localIdeographFontFamily: "Quicksand",
         attributionControl: false,
         maxBounds: [
             [-22, 25],
             [50, 70],
         ],
+    });
+
+    map.on("error", (e) => {
+        console.error(">>> MAP ERROR EVENT:", e);
+        if (e.error) {
+            console.error("   Message:", e.error.message);
+            console.error("   Stack:", e.error.stack);
+        }
+        // @ts-ignore
+        if (e.sourceId) console.error("  Failing Source:", e.sourceId);
+        // @ts-ignore
+        if (e.tile) console.error("  Failing Tile:", e.tile);
     });
 
     //// =================> LATER ATS UPDATE <=================
@@ -110,7 +129,7 @@ export async function initializeMap(
         // FOOTPRINTS (BUILDINGS SHAPE)
         map.addSource("ets2-footprints", {
             type: "vector",
-            url: "pmtiles://map-data/tiles/ets2-footprints.pmtiles",
+            url: "pmtiles://map-data/tiles/ets2-footprints.mp3",
         });
 
         // VILLAGE LABELS
@@ -122,13 +141,13 @@ export async function initializeMap(
         // CITY NAMES
         map.addSource("ets2-cities", {
             type: "geojson",
-            data: "/map-data/ets2-cities.geojson",
+            data: "map-data/ets2-cities.geojson",
         });
 
         // MAP AREAS
         map.addSource("ets2-mapareas", {
             type: "geojson",
-            data: "/map-data/ets2-mapareas.geojson",
+            data: "map-data/ets2-mapareas.geojson",
         });
 
         // COUNTRY DELIMITATION
@@ -346,23 +365,23 @@ export async function initializeMap(
         );
 
         // DISPLAYING VILLAGE NAMES
-        map.addLayer({
-            id: "village-labels",
-            type: "symbol",
-            source: "ets2-villages",
-            layout: {
-                "text-field": ["get", "name"],
-                "text-font": ["Quicksand medium"],
-                "text-size": 13,
-                "text-anchor": "center",
-                "text-offset": [0, 0],
-                "text-allow-overlap": true,
-            },
-            paint: {
-                "text-color": "#ffffff",
-            },
-            minzoom: 7.9,
-        });
+        // map.addLayer({
+        //     id: "village-labels",
+        //     type: "symbol",
+        //     source: "ets2-villages",
+        //     layout: {
+        //         // "text-field": ["get", "name"],
+        //         // "text-font": ["Quicksand medium"],
+        //         "text-size": 13,
+        //         "text-anchor": "center",
+        //         "text-offset": [0, 0],
+        //         "text-allow-overlap": true,
+        //     },
+        //     paint: {
+        //         "text-color": "#ffffff",
+        //     },
+        //     minzoom: 7.9,
+        // });
 
         // DISPLAYING CITY DOTS
         map.addLayer({
@@ -660,49 +679,49 @@ export async function initializeMap(
         });
 
         // DISPLAY PHOTO SIGHT LOCATIONS ON MAP
-        map.addLayer({
-            id: "photo-sight-icons",
-            type: "symbol",
-            source: "sprite-locations",
-            filter: [
-                "match",
-                ["get", "sprite"],
-                ["photo_sight_captured"],
-                true,
-                false,
-            ],
-            minzoom: 6.5,
+        // map.addLayer({
+        //     id: "photo-sight-icons",
+        //     type: "symbol",
+        //     source: "sprite-locations",
+        //     filter: [
+        //         "match",
+        //         ["get", "sprite"],
+        //         ["photo_sight_captured"],
+        //         true,
+        //         false,
+        //     ],
+        //     minzoom: 6.5,
 
-            layout: {
-                "icon-image": ["get", "sprite"],
+        //     layout: {
+        //         "icon-image": ["get", "sprite"],
 
-                "icon-size": [
-                    "interpolate",
-                    ["linear"],
-                    ["zoom"],
-                    8,
-                    1.4,
-                    //
-                    9.5,
-                    1.8,
-                ],
-                "symbol-placement": "point",
+        //         "icon-size": [
+        //             "interpolate",
+        //             ["linear"],
+        //             ["zoom"],
+        //             8,
+        //             1.4,
+        //             //
+        //             9.5,
+        //             1.8,
+        //         ],
+        //         "symbol-placement": "point",
 
-                "text-field": ["get", "poiName"],
-                "text-font": ["Quicksand"],
-                "text-size": 13,
+        //         // "text-field": ["get", "poiName"],
+        //         // "text-font": ["Quicksand"],
+        //         "text-size": 13,
 
-                "text-offset": [0, 0.8],
-                "text-anchor": "top",
+        //         "text-offset": [0, 0.8],
+        //         "text-anchor": "top",
 
-                "text-optional": true,
-            },
-            paint: {
-                "text-color": "#ffffff",
+        //         "text-optional": true,
+        //     },
+        //     paint: {
+        //         "text-color": "#ffffff",
 
-                "text-opacity": ["step", ["zoom"], 0, 9, 1],
-            },
-        });
+        //         "text-opacity": ["step", ["zoom"], 0, 9, 1],
+        //     },
+        // });
 
         // DISPLAY VIEWPOINT ON MAP
         map.addLayer({
@@ -786,75 +805,90 @@ export async function initializeMap(
         });
 
         // DISPLAYING CITY NAMES
-        map.addLayer({
-            id: "city-labels",
-            type: "symbol",
-            source: "ets2-cities",
-            filter: ["!=", ["get", "capital"], 2],
-            layout: {
-                "text-field": ["get", "name"],
-                "text-font": ["Quicksand"],
-                "text-size": 15,
-                "text-anchor": "bottom",
-                "text-offset": [0, -0.3],
-                "text-allow-overlap": true,
-            },
-            paint: {
-                "text-color": "#ffffff",
+        // map.addLayer({
+        //     id: "city-labels",
+        //     type: "symbol",
+        //     source: "ets2-cities",
+        //     filter: ["!=", ["get", "capital"], 2],
+        //     layout: {
+        //         // "text-field": ["get", "name"],
+        //         // "text-font": ["Quicksand"],
+        //         "text-size": 15,
+        //         "text-anchor": "bottom",
+        //         "text-offset": [0, -0.3],
+        //         "text-allow-overlap": true,
+        //     },
+        //     paint: {
+        //         "text-color": "#ffffff",
 
-                "text-halo-color": "#ffffff",
-                "text-halo-width": 0.3,
-            },
-            minzoom: 5.5,
-            maxzoom: 8,
-        });
+        //         "text-halo-color": "#ffffff",
+        //         "text-halo-width": 0.3,
+        //     },
+        //     minzoom: 5.5,
+        //     maxzoom: 8,
+        // });
 
         // DISPLAYING CAPITAL NAMES
-        map.addLayer({
-            id: "capital-major-labels",
-            type: "symbol",
-            filter: ["==", ["get", "capital"], 2],
-            source: "ets2-cities",
-            layout: {
-                "text-field": ["get", "name"],
-                "text-size": 18,
-                "text-font": ["Quicksand"],
-                "text-anchor": "bottom",
-                "text-offset": [0, -0.3],
-            },
-            paint: {
-                "text-color": "#ffffff",
-                "text-halo-color": "#ffffff",
-                "text-halo-width": 0.5,
-            },
-            minzoom: 5,
-            maxzoom: 8,
-        });
+        // map.addLayer({
+        //     id: "capital-major-labels",
+        //     type: "symbol",
+        //     filter: ["==", ["get", "capital"], 2],
+        //     source: "ets2-cities",
+        //     layout: {
+        //         // "text-field": ["get", "name"],
+        //         "text-size": 18,
+        //         // "text-font": ["Quicksand"],
+        //         "text-anchor": "bottom",
+        //         "text-offset": [0, -0.3],
+        //     },
+        //     paint: {
+        //         "text-color": "#ffffff",
+        //         "text-halo-color": "#ffffff",
+        //         "text-halo-width": 0.5,
+        //     },
+        //     minzoom: 5,
+        //     maxzoom: 8,
+        // });
 
         // DISPLAYING COUNTRY NAMES
-        map.addLayer({
-            id: "country-labels",
-            type: "symbol",
-            source: "ets2-countries",
-            layout: {
-                "text-field": ["get", "name"],
-                "text-size": 20,
-                "text-font": ["Quicksand"],
-                "text-anchor": "bottom",
-                "text-offset": [0, -0.3],
-            },
-            paint: {
-                "text-color": "#ffffff",
-                "text-halo-color": "#ffffff",
-                "text-halo-width": 0.5,
-                "text-opacity": 0.5,
-            },
-            minzoom: 5,
-            maxzoom: 5.5,
-        });
+        // map.addLayer({
+        //     id: "country-labels",
+        //     type: "symbol",
+        //     source: "ets2-countries",
+        //     layout: {
+        //         // "text-field": ["get", "name"],
+        //         "text-size": 20,
+        //         // "text-font": ["Quicksand"],
+        //         "text-anchor": "bottom",
+        //         "text-offset": [0, -0.3],
+        //     },
+        //     paint: {
+        //         "text-color": "#ffffff",
+        //         "text-halo-color": "#ffffff",
+        //         "text-halo-width": 0.5,
+        //         "text-opacity": 0.5,
+        //     },
+        //     minzoom: 5,
+        //     maxzoom: 5.5,
+        // });
 
         map.addControl(new maplibregl.NavigationControl());
     });
 
     return map;
+}
+
+class BlobSource {
+    blob: Blob;
+    constructor(blob: Blob) {
+        this.blob = blob;
+    }
+    async getBytes(offset: number, length: number) {
+        const slice = this.blob.slice(offset, offset + length);
+        const arrayBuffer = await slice.arrayBuffer();
+        return { data: arrayBuffer };
+    }
+    getKey() {
+        return "roads";
+    }
 }
