@@ -3,8 +3,7 @@ import type { TelemetryData } from "../../shared/types/Telemetry/TelemetryData";
 import { convertGameToGeo } from "~/assets/utils/gameToGeo";
 import { getBearing } from "~/assets/utils/geographicMath";
 import { convertTelemtryTime } from "~/assets/utils/helpers";
-
-const TELEMETRY_API = "/api/ets2";
+import { CapacitorHttp } from "@capacitor/core";
 
 export interface TelemetryUpdate {
     truck: TruckState;
@@ -128,6 +127,11 @@ export function useEtsTelemetry() {
             const startTime = performance.now();
 
             try {
+                const response = await CapacitorHttp.get({
+                    url: "http://192.168.1.226:25555/api/ets2/telemetry",
+                    connectTimeout: 1000,
+                });
+
                 if (abortController) abortController.abort();
                 abortController = new AbortController();
                 const timeoutId = setTimeout(
@@ -135,22 +139,19 @@ export function useEtsTelemetry() {
                     1000
                 );
 
-                const response = await fetch(TELEMETRY_API, {
-                    signal: abortController.signal,
-                    cache: "no-cache",
-                    headers: { Pragma: "no-cache" },
-                });
-
                 clearTimeout(timeoutId);
 
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.connected && result.telemetry.game?.connected) {
+                if (response.status === 200) {
+                    const telemetryData = response.data;
+
+                    if (telemetryData && telemetryData.game?.connected) {
                         isTelemetryConnected.value = true;
-                        processData(result.telemetry, onUpdate);
+                        processData(telemetryData, onUpdate);
                     } else {
                         resetDataOnDisconnected(onUpdate);
                     }
+                } else {
+                    isTelemetryConnected.value = false;
                 }
             } catch (err) {
                 if (err instanceof Error && err.name !== "AbortError") {
