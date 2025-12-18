@@ -43,8 +43,11 @@ const isVisible = computed(() => {
     <div class="notification-container">
         <Transition name="notification-slide">
             <div v-if="isVisible" class="notification-wrapper">
-                <Transition name="notification-fade">
-                    <div class="content-wrapper">
+                <Transition name="notification-fade" mode="out-in">
+                    <div
+                        :key="String(notificationName)"
+                        class="content-wrapper"
+                    >
                         <span>{{ notificationName }}</span>
                         <Icon
                             class="notification-icon"
