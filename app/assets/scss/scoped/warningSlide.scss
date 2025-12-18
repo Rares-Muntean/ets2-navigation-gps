@@ -1,7 +1,7 @@
 .compact-trip-progress {
-    position: absolute;
-    bottom: 30px;
-    right: -2px;
+    // position: absolute;
+    // bottom: 30px;
+    // right: -2px;
     padding: 4px 14px 4px 6px;
 
     display: flex;
@@ -38,8 +38,6 @@
     }
 
     &.expanded {
-        padding-right: 20px;
-
         .text-content {
             max-width: 300px;
             opacity: 1;

@@ -61,7 +61,7 @@ export async function initializeMap(
         maxPitch: 45,
         localIdeographFontFamily: "Quicksand",
         attributionControl: false,
-        bounds: [
+        maxBounds: [
             [-22, 25],
             [50, 70],
         ],

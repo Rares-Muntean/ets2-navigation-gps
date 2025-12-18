@@ -1,12 +1,16 @@
 <script lang="ts" setup>
-const props = defineProps<{ hasInGameMarker: boolean; hasMarker: boolean }>();
+const props = defineProps<{
+    showIf: boolean;
+    resetOn?: boolean;
+    text: string;
+}>();
 
 const isExpanded = ref(false);
 
 watch(
-    () => props.hasMarker,
+    () => props.resetOn,
     (newValue) => {
-        if (newValue === true) {
+        if (newValue) {
             isExpanded.value = false;
         }
     }
@@ -20,7 +24,7 @@ const onToggleExpanded = () => {
 <template>
     <Transition name="compact-slide">
         <div
-            v-if="hasInGameMarker && !hasMarker"
+            v-if="showIf"
             class="compact-trip-progress"
             :class="{ expanded: isExpanded }"
             v-on:click="onToggleExpanded"
@@ -33,9 +37,7 @@ const onToggleExpanded = () => {
                 <Icon name="ant-design:warning-filled" size="22" />
 
                 <div class="text-content">
-                    <span class="text-nowrap"
-                        >External Route Detected: Set Waypoint</span
-                    >
+                    <span class="text-nowrap">{{ text }}</span>
                 </div>
             </div>
         </div>

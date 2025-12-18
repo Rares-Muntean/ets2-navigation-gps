@@ -269,10 +269,19 @@ function onSheetClosed() {
             :speed-limit="speedLimit"
         />
 
-        <WarningSlide
-            :has-in-game-marker="hasInGameMarker"
-            :has-marker="isRouteActive ? true : false"
-        />
+        <div class="warnings">
+            <WarningSlide
+                :show-if="hasInGameMarker && isRouteActive"
+                :reset-on="isRouteActive"
+                text="External Route Detected: Set Waypoint"
+            />
+
+            <WarningSlide
+                :show-if="!gameConnected"
+                :reset-on="gameConnected"
+                text="Game Offline"
+            />
+        </div>
 
         <Transition name="sheet-slide" @after-leave="onSheetClosed">
             <SheetSlide
