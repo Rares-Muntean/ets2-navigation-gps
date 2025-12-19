@@ -1,0 +1,17 @@
+{
+    "compileOnSave": true,
+    "include": ["./src/**/*", "./capacitor.config.ts", "./capacitor.config.js"],
+    "compilerOptions": {
+        "outDir": "./build",
+        "importHelpers": true,
+        "target": "ES2017",
+        "skipLibCheck": true,
+        "module": "Node16",
+        "moduleResolution": "node16",
+        "esModuleInterop": true,
+        "allowJs": true,
+        "rootDir": ".",
+        "types": ["node", "electron"],
+        "typeRoots": ["node_modules/@types", "node_modules"]
+    }
+}

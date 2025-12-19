@@ -11,6 +11,7 @@
         "postinstall": "nuxt prepare"
     },
     "dependencies": {
+        "@capacitor-community/electron": "^5.0.1",
         "@capacitor/android": "^8.0.0",
         "@capacitor/cli": "^8.0.0",
         "@capacitor/core": "^8.0.0",
