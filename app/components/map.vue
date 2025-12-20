@@ -8,7 +8,6 @@ import { usePlatform } from "~/composables/Platform";
 
 // MAP STATE
 const mapEl = ref<HTMLElement | null>(null);
-const wrapperEl = ref<HTMLElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
 
 // UI STATE

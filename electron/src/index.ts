@@ -4,16 +4,29 @@ import {
     setupElectronDeepLinking,
 } from "@capacitor-community/electron";
 import type { MenuItemConstructorOptions } from "electron";
-import { app, MenuItem } from "electron";
+import { app, ipcMain, MenuItem } from "electron";
 import electronIsDev from "electron-is-dev";
 import unhandled from "electron-unhandled";
 import { autoUpdater } from "electron-updater";
+import os from "os";
 
 import {
     ElectronCapacitorApp,
     setupContentSecurityPolicy,
     setupReloadWatcher,
 } from "./setup";
+
+ipcMain.handle("get-local-ip", () => {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]!) {
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return "127.0.0.1";
+});
 
 // Graceful handling of unhandled errors.
 unhandled();

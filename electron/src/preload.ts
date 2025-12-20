@@ -4,7 +4,10 @@ require("./rt/electron-rt");
 console.log("User Preload!");
 
 import { contextBridge, ipcRenderer } from "electron";
+
 contextBridge.exposeInMainWorld("electronAPI", {
     onServerIp: (callback: (ip: string) => void) =>
         ipcRenderer.on("server-ip", (_event, value) => callback(value)),
+
+    getLocalIP: () => ipcRenderer.invoke("get-local-ip"),
 });

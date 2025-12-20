@@ -1,0 +1,139 @@
+.section-device-info {
+    height: 100vh;
+    color: $white-font-text;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.top-tagline {
+    padding: 8px 16px;
+
+    height: 4rem;
+
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+
+    font-size: 1.3rem;
+    font-weight: 600;
+
+    .icon {
+        color: $blue-color;
+    }
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+
+    .title {
+        font-size: 2.4rem;
+        letter-spacing: 0.2px;
+    }
+
+    .subtitle {
+        margin-top: 2px;
+        opacity: 0.6;
+
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .steps {
+        list-style-position: inside;
+        margin-top: 2rem;
+
+        background-color: $secondaryColor;
+        border-radius: 6px;
+        padding: 24px;
+
+        font-size: 1.6rem;
+        font-weight: 600;
+
+        li {
+            margin-bottom: 0.4rem;
+        }
+
+        li:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+.localIp {
+    background-color: var(--theme-color);
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin-left: 4px;
+    font-weight: 700;
+
+    letter-spacing: 0.2px;
+}
+
+.bottom {
+    display: flex;
+    justify-content: end;
+
+    margin: 3.2rem;
+}
+
+.github-link {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+
+    font-size: 1.3rem;
+    font-weight: 600;
+
+    margin-top: 0.8rem;
+
+    a {
+        // background-color: ;
+        border-radius: 4px;
+        padding: 2px 4px;
+        color: $blue-color;
+
+        font-weight: 700;
+        font-size: 1.3rem;
+        text-decoration: none;
+
+        transition: 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+
+        &:hover {
+            color: $white-font-text;
+        }
+    }
+}
+
+.btn {
+    background-color: var(--theme-color);
+    display: flex;
+    gap: 0.6rem;
+
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 1.6rem;
+    color: $white-font-text;
+
+    height: fit-content;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    justify-content: center;
+    align-items: center;
+
+    cursor: pointer;
+    transition: 0.2s ease-out;
+
+    &:hover {
+        background-color: $secondaryColor;
+    }
+
+    &:active {
+        transform: scale(0.95);
+    }
+}

@@ -1,5 +1,8 @@
-<template>
-    <Map />
-</template>
+<script lang="ts" setup>
+const { isElectron, isMobile, isWeb } = usePlatform();
+</script>
 
-<script lang="ts" setup></script>
+<template>
+    <DesktopIndex v-if="isWeb" />
+    <LazyMap v-if="isWeb" />
+</template>
