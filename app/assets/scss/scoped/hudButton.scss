@@ -1,7 +1,5 @@
 .option-btn {
-    margin-top: calc($game-info-bar-height + 10px);
     color: $white-font-text;
-    position: absolute;
     padding: 3px 3px;
     display: flex;
     justify-self: center;
@@ -25,9 +23,4 @@
     &:active {
         background-color: $secondaryColor !important;
     }
-}
-
-.center-btn {
-    top: 150px;
-    right: 9px;
 }

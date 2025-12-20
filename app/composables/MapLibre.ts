@@ -874,8 +874,6 @@ export async function initializeMap(
             minzoom: 5,
             maxzoom: 5.5,
         });
-
-        map.addControl(new maplibregl.NavigationControl());
     });
 
     return map;

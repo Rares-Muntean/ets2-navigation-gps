@@ -189,12 +189,6 @@ onMounted(async () => {
         map.value = await initializeMap(mapEl.value);
         if (!map.value) return;
 
-        map.value.addControl(
-            new maplibregl.FullscreenControl({
-                container: wrapperEl.value!,
-            })
-        );
-
         map.value.on("load", async () => {
             const { nodes, edges } = await initializeGraphData();
             initWorkerData(nodes, edges);
@@ -257,6 +251,34 @@ function onSheetClosed() {
     isSheetHidden.value = false;
     isSheetExpanded.value = false;
 }
+
+const onResetNorth = () => {
+    map.value?.easeTo({
+        bearing: 0,
+        pitch: 0,
+        duration: 500,
+    });
+};
+
+const onToggleFullscreen = async () => {
+    const target = document.documentElement;
+
+    try {
+        if (!document.fullscreenElement) {
+            await target.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) {
+                await document.exitFullscreen();
+            }
+        }
+
+        setTimeout(() => {
+            map.value?.resize();
+        }, 100);
+    } catch (err) {
+        console.error("Fullscreen error:", err);
+    }
+};
 </script>
 
 <template>
@@ -281,7 +303,15 @@ function onSheetClosed() {
             :is-calculating-route="isCalculatingRoute"
         />
 
-        <HudButton icon-name="fe:target" :lock-camera="lockCamera" />
+        <div class="hud-buttons">
+            <HudButton
+                v-if="isWeb"
+                icon-name="gridicons:fullscreen"
+                :onClick="onToggleFullscreen"
+            />
+            <HudButton icon-name="ix:navigation" :onClick="onResetNorth" />
+            <HudButton icon-name="fe:target" :onClick="lockCamera" />
+        </div>
 
         <SpeedLimit
             :class="{

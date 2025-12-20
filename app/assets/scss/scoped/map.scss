@@ -24,6 +24,16 @@
     gap: 0.8rem;
 }
 
+.hud-buttons {
+    position: absolute;
+    top: calc($game-info-bar-height + 1.8rem);
+    right: 9px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
 //
 //
 //
