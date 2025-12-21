@@ -18,7 +18,7 @@ const launchMap = () => {
 };
 
 const goHome = () => {
-    currentView.value = "home";
+    currentView.value = "desktopHome";
 };
 </script>
 
@@ -27,6 +27,9 @@ const goHome = () => {
         v-if="currentView === 'desktopHome'"
         :launch-map="launchMap"
     />
-    <MobileIndex v-if="currentView === 'mobileHome'" />
+    <MobileIndex
+        v-if="currentView === 'mobileHome'"
+        @connected="currentView = 'mobileHome'"
+    />
     <LazyMap v-if="currentView === 'map'" :goHome="goHome" />
 </template>

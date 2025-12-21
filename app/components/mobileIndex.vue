@@ -10,7 +10,6 @@ const emit = defineEmits(["connected"]);
 
 onMounted(async () => {
     const existing = await loadIP();
-    console.log(existing);
     if (existing) ipInput.value = existing;
 });
 

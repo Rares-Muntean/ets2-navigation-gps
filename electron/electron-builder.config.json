@@ -1,10 +1,17 @@
 {
-    "appId": "com.yourdoamnin.yourapp",
+    "appId": "com.raresmuntean.trucknav",
     "directories": {
         "buildResources": "resources"
     },
     "files": ["assets/**/*", "build/**/*", "capacitor.config.*", "app/**/*"],
     "publish": null,
+    "extraResources": [
+        {
+            "from": "bin/telemetry-server",
+            "to": "telemetry-server",
+            "filter": ["**/*"]
+        }
+    ],
     "nsis": {
         "allowElevation": true,
         "oneClick": false,

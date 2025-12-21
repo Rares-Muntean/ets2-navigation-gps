@@ -7,7 +7,6 @@ import type { MenuItemConstructorOptions } from "electron";
 import { app, ipcMain, MenuItem, shell } from "electron";
 import electronIsDev from "electron-is-dev";
 import unhandled from "electron-unhandled";
-import { screen } from "electron";
 import { autoUpdater } from "electron-updater";
 import os from "os";
 
@@ -16,11 +15,80 @@ import {
     setupContentSecurityPolicy,
     setupReloadWatcher,
 } from "./setup";
+import path from "path";
+import { execSync, spawn } from "child_process";
+import { existsSync, writeFileSync, writeSync } from "fs";
 
 //
 //
 //
 //// ======> CUSTOM FUNCTIONS <======
+
+let telemetryProcess = null;
+
+function startTelemetryServer() {
+    const exeName = "Ets2Telemetry.exe";
+    const serverPath = app.isPackaged
+        ? path.join(
+              process.resourcesPath,
+              "telemetry-server",
+              "Ets2Telemetry.exe"
+          )
+        : path.join(
+              __dirname,
+              "..",
+              "..",
+              "bin",
+              "telemetry-server",
+              "Ets2Telemetry.exe"
+          );
+
+    console.log("Checking path:", serverPath);
+
+    try {
+        const runningProcesses = execSync(
+            `tasklist /FI "IMAGENAME eq ${exeName}" /NH`
+        ).toString();
+
+        if (runningProcesses.includes(exeName)) {
+            console.log(
+                "🚀 Telemetry Server is already running. Skipping startup."
+            );
+            return;
+        }
+    } catch (err) {
+        console.error("Process check failed, attempting to start anyway.");
+    }
+
+    const flagPath = path.join(app.getPath("userData"), ".first-run-completed");
+    const isFirstRun = !existsSync(flagPath);
+
+    if (isFirstRun) {
+        telemetryProcess = spawn(serverPath, [], {
+            cwd: path.dirname(serverPath),
+            shell: true,
+        });
+
+        writeFileSync(flagPath, "done");
+    } else {
+        const psCommand = `Start-Process -FilePath "${serverPath}" -WorkingDirectory "${path.dirname(
+            serverPath
+        )}" -WindowStyle Minimized`;
+
+        telemetryProcess = spawn("powershell.exe", ["-Command", psCommand], {
+            shell: true,
+        });
+    }
+
+    telemetryProcess.stdout.on("data", (data) => {
+        console.log(`Server: ${data}`);
+    });
+
+    telemetryProcess.on("error", (err) => {
+        console.error("Failed to start telemetry server:", err);
+    });
+}
+
 ipcMain.handle("get-local-ip", () => {
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
@@ -101,6 +169,9 @@ if (electronIsDev) {
 (async () => {
     // Wait for electron app to be ready.
     await app.whenReady();
+
+    startTelemetryServer();
+
     // Security - Set Content-Security-Policy based on whether or not we are in dev mode.
     setupContentSecurityPolicy(myCapacitorApp.getCustomURLScheme());
     // Initialize our app, build windows, and load content.
