@@ -1,9 +1,9 @@
 {
     "name": "truck-nav",
     "version": "1.0.0",
-    "description": "An Amazing Capacitor App",
+    "description": "Real-time GPS navigation route advisor for ETS2. Browser-based second monitor map with live tracking and routing.",
     "author": {
-        "name": "MunteanRares",
+        "name": "RaresMuntean",
         "email": "rares_famuntean@yahoo.com"
     },
     "repository": {
