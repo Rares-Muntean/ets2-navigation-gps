@@ -19,9 +19,13 @@ const isSheetHidden = ref(false);
 
 // TRUCK STATE
 const truckMarkerComponent = ref<InstanceType<typeof TruckMarker> | null>(null);
+const isClickingEnabled = ref(true);
 
 // JOB STATE
 const currentJobKey = ref<string>("");
+
+// NOTIFICATION TRIGGERS
+const clickingNotificationTrigger = ref(0);
 
 //
 //
@@ -130,6 +134,7 @@ watch(
                 if (!truckCoords.value) return;
 
                 const destCoords = findDestinationCoords(city, company);
+                isClickingEnabled.value = false;
 
                 if (destCoords) {
                     currentJobKey.value = newJobKey;
@@ -184,10 +189,6 @@ watch([loading, gameConnected], ([isLoading, isGameConnected]) => {
 });
 
 onMounted(async () => {
-    if (isMobile.value) {
-        eruda.init();
-    }
-
     await loadLocationData();
     if (!mapEl.value) return;
     if (isElectron.value) {
@@ -210,7 +211,8 @@ onMounted(async () => {
             console.log(
                 ` ${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`
             ); // KEEP FOR DEBUGGING BUGGED AREAS
-            if (hasActiveJob.value) return;
+            // if (hasActiveJob.value) return;
+            if (!isClickingEnabled.value) return;
             if (!truckMarker.value) return;
 
             await handleRouteClick(
@@ -259,6 +261,12 @@ function onStartNavigation() {
 function onSheetClosed() {
     isSheetHidden.value = false;
     isSheetExpanded.value = false;
+}
+
+function toggleEnableClicking() {
+    isClickingEnabled.value = !isClickingEnabled.value;
+
+    clickingNotificationTrigger.value++;
 }
 
 const onResetNorth = () => {
@@ -316,6 +324,19 @@ const onToggleFullscreen = async () => {
                 <HudButton icon-name="i-tabler:arrow-back" :onClick="goHome" />
             </div>
 
+            <NotificationGeneral
+                :icon-name="
+                    isClickingEnabled
+                        ? 'i-tabler:hand-click'
+                        : 'i-tabler:hand-click-off'
+                "
+                :trigger="clickingNotificationTrigger"
+                :text="
+                    isClickingEnabled ? 'Tapping Enabled' : 'Tapping Disabled'
+                "
+                :icon-color="isClickingEnabled ? '#4caf50' : '#dd4a34'"
+            />
+
             <NotificationRoute
                 :is-route-found="routeFound"
                 :is-calculating-route="isCalculatingRoute"
@@ -329,6 +350,15 @@ const onToggleFullscreen = async () => {
                 />
                 <HudButton icon-name="ix:navigation" :onClick="onResetNorth" />
                 <HudButton icon-name="fe:target" :onClick="lockCamera" />
+                <HudButton
+                    :class="isClickingEnabled ? 'red-icon' : 'green-icon'"
+                    :icon-name="
+                        isClickingEnabled
+                            ? 'i-tabler:hand-click-off'
+                            : 'i-tabler:hand-click'
+                    "
+                    :onClick="toggleEnableClicking"
+                />
             </div>
 
             <SpeedLimit

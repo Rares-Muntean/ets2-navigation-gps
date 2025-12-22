@@ -14,6 +14,10 @@ $notification-height: 20px;
     justify-content: center;
     pointer-events: none;
     z-index: 50;
+
+    @media (orientation: portrait) {
+        top: calc($game-info-bar-height + env(safe-area-inset-top) + 15px);
+    }
 }
 
 .notification-wrapper {

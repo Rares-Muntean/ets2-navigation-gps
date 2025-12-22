@@ -6,7 +6,7 @@
     height: calc($game-info-bar-height);
     color: $white-font-text;
 
-    padding: 8px 16px 8px 0px;
+    padding: 8px 10px 8px 0px;
 
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     display: flex;
@@ -34,11 +34,11 @@
 
 .gas-sleep {
     display: flex;
-    gap: 0.4rem;
+    gap: 1rem;
 }
 
 .game-time {
-    padding: 1px 12px;
+    padding: 1px 8px;
     font-weight: 700;
     font-size: 1.6rem;
     min-width: 7.5rem;
@@ -56,8 +56,6 @@
 
     align-items: center;
     justify-content: center;
-
-    min-width: 8rem;
 
     .liters {
         opacity: 0.6;

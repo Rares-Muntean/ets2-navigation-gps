@@ -50,6 +50,14 @@
     @media (orientation: portrait) {
         top: calc($game-info-bar-height + env(safe-area-inset-top) + 1.8rem);
     }
+
+    .red-icon {
+        color: $red-color;
+    }
+
+    .green-icon {
+        color: $green-color;
+    }
 }
 
 .warnings {
