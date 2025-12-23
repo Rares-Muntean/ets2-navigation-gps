@@ -6,11 +6,58 @@
 .map-container {
     width: 100vw;
     height: 100vh;
+
     background-color: #272d39;
+}
+
+.ui-safe-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.ui-safe-container > * {
+    pointer-events: auto;
 }
 
 .full-page-wrapper {
     overflow: hidden;
+}
+
+.back-home {
+    position: absolute;
+    top: calc($game-info-bar-height + 1.8rem);
+    left: 10px;
+
+    @media (orientation: portrait) {
+        top: calc($game-info-bar-height + env(safe-area-inset-top) + 1.8rem);
+    }
+}
+
+.hud-buttons {
+    position: absolute;
+    top: calc($game-info-bar-height + 1.8rem);
+    right: 10px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+
+    @media (orientation: portrait) {
+        top: calc($game-info-bar-height + env(safe-area-inset-top) + 1.8rem);
+    }
+
+    .red-icon {
+        color: $red-color;
+    }
+
+    .green-icon {
+        color: $green-color;
+    }
 }
 
 .warnings {
@@ -27,51 +74,6 @@
 //
 //
 //
-
-// ----------------------> MAPLIBRE UI INTERFACE BUTTONS <----------------------
-:deep(.maplibregl-ctrl-group:first-of-type) {
-    margin-top: calc($game-info-bar-height + 20px);
-}
-
-:deep(.maplibregl-ctrl-group) {
-    background-color: $primaryColor;
-    border: 1px solid $secondaryColor;
-    color: $white-font-text;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    overflow: hidden;
-    z-index: -10;
-
-    button {
-        background-color: transparent !important;
-        border: none;
-        border-bottom: 1px solid $secondaryColor;
-        transition: background-color 0.2s ease;
-
-        &:last-child {
-            border-bottom: none;
-        }
-
-        &:hover {
-            background-color: $secondaryColor !important;
-        }
-
-        .maplibregl-ctrl-icon {
-            filter: invert(1) brightness(2);
-        }
-    }
-}
-
-:deep(.maplibregl-ctrl-compass) {
-    .maplibregl-ctrl-icon {
-        filter: invert(1) grayscale(1);
-    }
-}
-
-//
-//
-//
-
 // ----------------------> TRANSITIONS <---------------------- \\
 
 // SHEET SLIDE TRANSITIONS

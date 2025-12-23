@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<resources>
+    <string name="app_name">TruckNav</string>
+    <string name="title_activity_main">TruckNav</string>
+    <string name="package_name">com.raresmuntean.trucknav</string>
+    <string name="custom_url_scheme">com.raresmuntean.trucknav</string>
+</resources>

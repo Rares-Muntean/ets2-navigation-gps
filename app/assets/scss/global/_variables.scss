@@ -1,3 +1,27 @@
+@font-face {
+    font-family: "Quicksand";
+    src: url("/fonts/Quicksand/Quicksand-Regular.ttf") format("truetype");
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: "Quicksand";
+    src: url("/fonts/Quicksand/Quicksand-Bold.ttf") format("truetype");
+    font-weight: 700;
+}
+
+@font-face {
+    font-family: "Quicksand";
+    src: url("/fonts/Quicksand/Quicksand-Medium.ttf") format("truetype");
+    font-weight: 500;
+}
+
+@font-face {
+    font-family: "Quicksand";
+    src: url("/fonts/Quicksand/Quicksand-SemiBold.ttf") format("truetype");
+    font-weight: 600;
+}
+
 $primaryColor: #263444;
 $primaryDarkerColor: #151d25;
 
@@ -7,6 +31,8 @@ $secondaryDarkerColor: #222e3c;
 $white-font-text: #f2f2f2;
 $red-color: #dd4a34;
 $green-color: #4caf50;
+$warning-color: #f59e0b;
+$blue-color: #7dd3fc;
 
 $primaryFont: "Quicksand";
 

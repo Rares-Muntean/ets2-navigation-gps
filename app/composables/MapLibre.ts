@@ -1,11 +1,14 @@
 import type { Map as MapLibreGl, StyleSpecification } from "maplibre-gl";
 import { AppSettings } from "../../shared/variables/appSettings";
 import { blendWithBg, lightenColor } from "~/assets/utils/colors";
+import { BlobSource } from "~/assets/utils/BlobSource";
 
 export async function initializeMap(
     container: HTMLElement
 ): Promise<MapLibreGl> {
     const appTheme = AppSettings.theme;
+
+    const baseUrl = window.location.origin;
 
     const maplibregl = (await import("maplibre-gl")).default;
     const { Protocol, PMTiles } = await import("pmtiles");
@@ -13,9 +16,17 @@ export async function initializeMap(
     const protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    const PMTILES_URL = "/map-data/tiles/roads.pmtiles";
-    const pmtiles = new PMTiles(PMTILES_URL);
-    protocol.add(pmtiles);
+    async function loadPmtiles(fileName: string, key: string) {
+        const url = `${window.location.origin}/map-data/tiles/${fileName}.mp3`;
+        const response = await fetch(url);
+        const blob = await response.blob();
+
+        const pmtilesInstance = new PMTiles(new BlobSource(blob, key));
+        protocol.add(pmtilesInstance);
+    }
+
+    await loadPmtiles("roads", "roads");
+    await loadPmtiles("ets2-footprints", "ets2-footprints");
 
     const style: StyleSpecification = {
         version: 8,
@@ -25,11 +36,17 @@ export async function initializeMap(
             ets2: {
                 type: "vector",
 
-                url: `pmtiles://${PMTILES_URL}`,
+                url: `pmtiles://roads`,
+            },
+
+            "ets2-footprints": {
+                type: "vector",
+                url: `pmtiles://ets2-footprints`,
             },
         },
 
-        sprite: window.location.origin + "/sprites/sprites",
+        sprite: `${baseUrl}/sprites/sprites`,
+        glyphs: `${baseUrl}/fonts/{fontstack}/{range}.pbf`,
 
         layers: [
             {
@@ -59,12 +76,23 @@ export async function initializeMap(
         minZoom: 5,
         maxZoom: 11.5,
         maxPitch: 45,
-        localIdeographFontFamily: "Quicksand",
         attributionControl: false,
         maxBounds: [
             [-22, 25],
             [50, 70],
         ],
+    });
+
+    map.on("error", (e) => {
+        console.error(">>> MAP ERROR EVENT:", e);
+        if (e.error) {
+            console.error("   Message:", e.error.message);
+            console.error("   Stack:", e.error.stack);
+        }
+        // @ts-ignore
+        if (e.sourceId) console.error("  Failing Source:", e.sourceId);
+        // @ts-ignore
+        if (e.tile) console.error("  Failing Tile:", e.tile);
     });
 
     //// =================> LATER ATS UPDATE <=================
@@ -107,12 +135,6 @@ export async function initializeMap(
             data: "map-data/ets2-water.geojson",
         });
 
-        // FOOTPRINTS (BUILDINGS SHAPE)
-        map.addSource("ets2-footprints", {
-            type: "vector",
-            url: "pmtiles://map-data/tiles/ets2-footprints.pmtiles",
-        });
-
         // VILLAGE LABELS
         map.addSource("ets2-villages", {
             type: "geojson",
@@ -122,13 +144,13 @@ export async function initializeMap(
         // CITY NAMES
         map.addSource("ets2-cities", {
             type: "geojson",
-            data: "/map-data/ets2-cities.geojson",
+            data: "map-data/ets2-cities.geojson",
         });
 
         // MAP AREAS
         map.addSource("ets2-mapareas", {
             type: "geojson",
-            data: "/map-data/ets2-mapareas.geojson",
+            data: "map-data/ets2-mapareas.geojson",
         });
 
         // COUNTRY DELIMITATION
@@ -352,7 +374,7 @@ export async function initializeMap(
             source: "ets2-villages",
             layout: {
                 "text-field": ["get", "name"],
-                "text-font": ["Quicksand medium"],
+                "text-font": ["Quicksand regular"],
                 "text-size": 13,
                 "text-anchor": "center",
                 "text-offset": [0, 0],
@@ -689,7 +711,7 @@ export async function initializeMap(
                 "symbol-placement": "point",
 
                 "text-field": ["get", "poiName"],
-                "text-font": ["Quicksand"],
+                "text-font": ["Quicksand Regular"],
                 "text-size": 13,
 
                 "text-offset": [0, 0.8],
@@ -793,7 +815,7 @@ export async function initializeMap(
             filter: ["!=", ["get", "capital"], 2],
             layout: {
                 "text-field": ["get", "name"],
-                "text-font": ["Quicksand"],
+                "text-font": ["Quicksand Regular"],
                 "text-size": 15,
                 "text-anchor": "bottom",
                 "text-offset": [0, -0.3],
@@ -818,7 +840,7 @@ export async function initializeMap(
             layout: {
                 "text-field": ["get", "name"],
                 "text-size": 18,
-                "text-font": ["Quicksand"],
+                "text-font": ["Quicksand Regular"],
                 "text-anchor": "bottom",
                 "text-offset": [0, -0.3],
             },
@@ -839,7 +861,7 @@ export async function initializeMap(
             layout: {
                 "text-field": ["get", "name"],
                 "text-size": 20,
-                "text-font": ["Quicksand"],
+                "text-font": ["Quicksand Regular"],
                 "text-anchor": "bottom",
                 "text-offset": [0, -0.3],
             },
@@ -852,8 +874,6 @@ export async function initializeMap(
             minzoom: 5,
             maxzoom: 5.5,
         });
-
-        map.addControl(new maplibregl.NavigationControl());
     });
 
     return map;

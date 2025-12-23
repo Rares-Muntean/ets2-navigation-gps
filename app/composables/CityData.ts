@@ -1,4 +1,5 @@
 import { shallowRef, ref } from "vue";
+import { loadGraph } from "~/assets/utils/clientGraph";
 import { convertGeoToGame } from "~/assets/utils/gameToGeo";
 import {
     getScaleMultiplier,
@@ -30,9 +31,15 @@ interface GeoJsonCollection {
     features: GeoJsonFeature[];
 }
 
+interface CityFallback {
+    FirstName: string;
+    SecondName: string;
+}
+
 const cityData = shallowRef<GeoJsonCollection | null>(null);
 const villageData = shallowRef<GeoJsonCollection | null>(null);
 const companiesData = shallowRef<GeoJsonCollection | null>(null);
+const citiesFallbackData = shallowRef<CityFallback[] | null>(null);
 
 const isLoaded = ref(false);
 const optimizedCityNodes = shallowRef<SimpleCityNode[]>([]);
@@ -42,17 +49,20 @@ export function useCityData() {
         if (isLoaded.value) return;
 
         try {
-            const [citiesRes, villagesRes, companiesRes] = await Promise.all([
-                fetch("/map-data/ets2-cities.geojson"),
-                fetch("/map-data/ets2-villages.geojson"),
-                fetch("/map-data/ets2-companies.geojson"),
-            ]);
+            const [citiesRes, villagesRes, companiesRes, citiesFallbackRes] =
+                await Promise.all([
+                    fetch("/map-data/ets2-cities.geojson"),
+                    fetch("/map-data/ets2-villages.geojson"),
+                    fetch("/map-data/ets2-companies.geojson"),
+                    fetch("/map-data/citiesCheck.json"),
+                ]);
 
             if (citiesRes.ok) cityData.value = await citiesRes.json();
             if (villagesRes.ok) villageData.value = await villagesRes.json();
             if (companiesRes.ok)
                 companiesData.value = await companiesRes.json();
-
+            if (citiesFallbackRes.ok)
+                citiesFallbackData.value = await citiesFallbackRes.json();
             const cNodes = processCollection(cityData.value);
 
             optimizedCityNodes.value = [...cNodes!];
@@ -80,9 +90,40 @@ export function useCityData() {
     ): [number, number] | null {
         if (!isLoaded.value || !companiesData.value) return null;
 
-        const cityCoords = getCityGeoCoordinates(targetCityName);
+        let cityCoords = getCityGeoCoordinates(targetCityName);
         if (!cityCoords) {
-            console.log(`City not found: ${targetCityName}`);
+            console.log(
+                `Primary name failed: ${targetCityName}. Searching for aliases...`
+            );
+
+            const aliasEntry = citiesFallbackData.value?.find(
+                (c) =>
+                    c.FirstName.toLowerCase() ===
+                        targetCityName.toLowerCase() ||
+                    c.SecondName.toLowerCase() === targetCityName.toLowerCase()
+            );
+
+            if (aliasEntry) {
+                if (aliasEntry.SecondName && aliasEntry.SecondName !== "") {
+                    console.log(
+                        `Trying SecondName alias: ${aliasEntry.SecondName}`
+                    );
+                    cityCoords = getCityGeoCoordinates(aliasEntry.SecondName);
+                }
+
+                if (!cityCoords && aliasEntry.FirstName) {
+                    console.log(
+                        `Trying FirstName alias: ${aliasEntry.FirstName}`
+                    );
+                    cityCoords = getCityGeoCoordinates(aliasEntry.FirstName);
+                }
+            }
+        }
+
+        if (!cityCoords) {
+            console.log(
+                `City totally not found in geo-data: ${targetCityName}. Manually insert it in citiesCheck.json`
+            );
             return null;
         }
 

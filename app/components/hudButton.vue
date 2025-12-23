@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-defineProps<{ lockCamera: () => void; iconName: string }>();
+defineProps<{ onClick: () => void; iconName: string }>();
 </script>
 
 <template>
-    <button class="option-btn center-btn" @click.prevent="lockCamera">
-        <Icon :name="iconName" size="24" />
+    <button class="option-btn" @click.prevent="onClick">
+        <Icon :name="iconName" size="28" />
     </button>
 </template>
 

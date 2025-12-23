@@ -1,0 +1,138 @@
+.section-mobile-menu {
+    height: 100vh;
+    height: calc(100vh - env(safe-area-inset-top));
+
+    color: $white-font-text;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.title {
+    padding: 8px 16px;
+
+    height: 4rem;
+
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+
+    font-size: 1.8rem;
+    font-weight: 600;
+
+    .icon {
+        margin-top: 2px;
+        color: $blue-color;
+    }
+}
+
+.content {
+    flex: 1;
+    width: 80%;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+
+    gap: 1.8rem;
+
+    font-size: 1.6rem;
+
+    justify-content: center;
+}
+
+.form-details {
+    background-color: $secondaryColor;
+    padding: 18px;
+    border-radius: 6px;
+}
+
+.status {
+    display: flex;
+    justify-content: end;
+    font-size: 1.4rem;
+
+    .connected {
+        color: $green-color;
+    }
+
+    .disconnected {
+        color: $red-color;
+    }
+}
+
+.description {
+    margin-left: 4px;
+    opacity: 0.8;
+    font-size: 1.4rem;
+    padding: 8px 0px 8px 12px;
+
+    border-left: $blue-color 3px solid;
+    border-radius: 3px;
+}
+
+.note {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    margin-bottom: 0.6rem;
+
+    color: $blue-color;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 0.6rem;
+
+    input {
+        padding-left: 10px;
+        height: 3.8rem;
+
+        font-weight: 600;
+        font-size: 1.6rem;
+
+        border-style: none;
+        border-radius: 6px;
+    }
+
+    input:focus {
+        outline: none;
+    }
+
+    ::placeholder {
+        font-weight: 500;
+        opacity: 0.8;
+    }
+}
+
+.btn {
+    background-color: var(--theme-color);
+    display: flex;
+    gap: 0.8rem;
+
+    font-weight: 600;
+    font-size: 1.8rem;
+    color: $white-font-text;
+
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    width: 70%;
+    align-self: center;
+
+    justify-content: center;
+    align-items: center;
+
+    transition: 0.2s ease-out;
+
+    &:active {
+        transform: scale(0.97);
+        background-color: $secondaryColor;
+    }
+
+    margin-bottom: 3.2rem;
+}

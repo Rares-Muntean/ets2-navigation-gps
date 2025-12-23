@@ -3,21 +3,21 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: $game-info-bar-height;
+    height: calc($game-info-bar-height);
     color: $white-font-text;
+
+    padding: 8px 10px 8px 0px;
 
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     display: flex;
-    align-items: center;
-    padding: 0px 8px 0px 0px;
+    align-items: flex-end;
     justify-content: space-between;
-
     border-bottom: 3px solid $secondaryColor;
 
     background-color: $primaryColor;
 
-    @media (orientation: landscape) {
-        padding: 0px 22px 0px 15px;
+    @media (orientation: portrait) {
+        height: calc($game-info-bar-height + env(safe-area-inset-top));
     }
 }
 
@@ -28,20 +28,20 @@
 
 .gas-sleep-time {
     display: flex;
+    align-items: flex-end;
     gap: 0.8rem;
 }
 
 .gas-sleep {
     display: flex;
-    gap: 0.4rem;
+    gap: 1rem;
 }
 
 .game-time {
-    padding: 3px 8px;
-    font-weight: 650;
+    padding: 1px 8px;
+    font-weight: 700;
     font-size: 1.6rem;
     min-width: 7.5rem;
-    text-align: center;
 
     background-color: rgb(21, 29, 37, 0.5);
     border-radius: 8px;
@@ -56,8 +56,6 @@
 
     align-items: center;
     justify-content: center;
-
-    min-width: 8rem;
 
     .liters {
         opacity: 0.6;
@@ -142,16 +140,17 @@
     position: relative;
     display: flex;
     justify-content: center;
+    height: 4.4rem;
     gap: 0.3rem;
-    align-items: baseline;
+    align-items: end;
+    padding-bottom: 3px;
 
     min-width: 110px;
-    padding: 8px 0px 10px 0;
 }
 
 .road-perspective {
     position: absolute;
-    bottom: 7px;
+    bottom: 0px;
     left: 0;
     width: 100%;
     height: 100%;
@@ -179,7 +178,7 @@
 .truck-speed,
 .km-h {
     position: relative;
-    font-weight: bold;
+    font-weight: 500;
 }
 
 .truck-speed {

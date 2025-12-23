@@ -1,5 +1,5 @@
 {
-    "name": "euro-truck-nav",
+    "name": "truck-nav",
     "type": "module",
     "private": true,
     "scripts": {
@@ -11,8 +11,17 @@
         "postinstall": "nuxt prepare"
     },
     "dependencies": {
+        "@capacitor-community/electron": "^5.0.1",
+        "@capacitor-community/safe-area": "^7.0.0-beta.8",
+        "@capacitor/android": "^8.0.0",
+        "@capacitor/cli": "^8.0.0",
+        "@capacitor/core": "^8.0.0",
+        "@capacitor/ios": "^8.0.0",
+        "@capacitor/keyboard": "^8.0.0",
+        "@capacitor/preferences": "^7.0.3",
         "@nuxt/icon": "^2.1.0",
         "@turf/turf": "^7.3.1",
+        "eruda": "^3.4.3",
         "maplibre-gl": "^5.14.0",
         "nuxt": "^4.2.2",
         "pmtiles": "^4.3.0",
@@ -22,6 +31,7 @@
         "vue-router": "^4.6.4"
     },
     "devDependencies": {
+        "@capacitor/assets": "^3.0.5",
         "@types/node": "^25.0.0",
         "@types/rbush": "^4.0.0",
         "npm-force-resolutions": "^0.0.10",

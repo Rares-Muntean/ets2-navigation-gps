@@ -4,10 +4,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import type TruckMarker from "./truckMarker.vue";
 import SpeedLimit from "./speedLimit.vue";
+import { usePlatform } from "~/composables/Platform";
+import eruda from "eruda";
+
+defineProps<{ goHome: () => void }>();
 
 // MAP STATE
 const mapEl = ref<HTMLElement | null>(null);
-const wrapperEl = ref<HTMLElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
 
 // UI STATE
@@ -16,11 +19,20 @@ const isSheetHidden = ref(false);
 
 // TRUCK STATE
 const truckMarkerComponent = ref<InstanceType<typeof TruckMarker> | null>(null);
+const isClickingEnabled = ref(true);
 
 // JOB STATE
 const currentJobKey = ref<string>("");
 
-//// COMPOSABLES
+// NOTIFICATION TRIGGERS
+const clickingNotificationTrigger = ref(0);
+
+//
+//
+//// ======> COMPOSABLES <======
+
+//
+//
 // Telemetry Data
 const {
     startTelemetry,
@@ -39,13 +51,25 @@ const {
     destinationCompany,
 } = useEtsTelemetry();
 
+//
+//
 // Map Areas Data
 const { loadLocationData, findDestinationCoords } = useCityData();
 
+//
+//
+// Check Platform
+const { isElectron, isMobile, isWeb } = usePlatform();
+
+//
+//
 // Graph manipulation
 const { loading, progress, adjacency, nodeCoords, initializeGraphData } =
     useGraphSystem();
 
+//
+//
+// TruckMarker
 const {
     truckMarker,
     setupTruckMarker,
@@ -53,6 +77,9 @@ const {
     removeMarker,
 } = useTruckMarker(map);
 
+//
+//
+// Maplibre Camera
 const {
     isCameraLocked,
     initCameraListeners,
@@ -61,6 +88,9 @@ const {
     lockCamera,
 } = useMapCamera(map);
 
+//
+//
+// Route Controller
 const {
     setupRouteLayer,
     handleRouteClick,
@@ -74,6 +104,8 @@ const {
     isRouteActive,
     routeFound,
 } = useRouteController(map, adjacency, nodeCoords);
+
+let uiTimer: ReturnType<typeof setTimeout> | null = null;
 
 // We check if it has active job, if it has one, plot a route
 watch(
@@ -102,6 +134,7 @@ watch(
                 if (!truckCoords.value) return;
 
                 const destCoords = findDestinationCoords(city, company);
+                isClickingEnabled.value = false;
 
                 if (destCoords) {
                     currentJobKey.value = newJobKey;
@@ -124,7 +157,6 @@ watch(
 );
 
 // We set the routeFound back to null with a delay if its true / false.
-let uiTimer: ReturnType<typeof setTimeout> | null = null;
 watch(routeFound, (newVal) => {
     if (newVal !== null) {
         if (uiTimer) clearTimeout(uiTimer);
@@ -159,16 +191,13 @@ watch([loading, gameConnected], ([isLoading, isGameConnected]) => {
 onMounted(async () => {
     await loadLocationData();
     if (!mapEl.value) return;
+    if (isElectron.value) {
+        (window as any).electronAPI.setWindowSize(900, 600, true, true);
+    }
 
     try {
         map.value = await initializeMap(mapEl.value);
         if (!map.value) return;
-
-        map.value.addControl(
-            new maplibregl.FullscreenControl({
-                container: wrapperEl.value!,
-            })
-        );
 
         map.value.on("load", async () => {
             const { nodes, edges } = await initializeGraphData();
@@ -182,7 +211,8 @@ onMounted(async () => {
             console.log(
                 ` ${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`
             ); // KEEP FOR DEBUGGING BUGGED AREAS
-            if (hasActiveJob.value) return;
+            // if (hasActiveJob.value) return;
+            if (!isClickingEnabled.value) return;
             if (!truckMarker.value) return;
 
             await handleRouteClick(
@@ -232,77 +262,151 @@ function onSheetClosed() {
     isSheetHidden.value = false;
     isSheetExpanded.value = false;
 }
+
+function toggleEnableClicking() {
+    isClickingEnabled.value = !isClickingEnabled.value;
+
+    clickingNotificationTrigger.value++;
+}
+
+const onResetNorth = () => {
+    map.value?.easeTo({
+        bearing: 0,
+        pitch: 0,
+        duration: 500,
+    });
+};
+
+const onToggleFullscreen = async () => {
+    const target = document.documentElement;
+
+    try {
+        if (!document.fullscreenElement) {
+            await target.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) {
+                await document.exitFullscreen();
+            }
+        }
+
+        setTimeout(() => {
+            map.value?.resize();
+        }, 100);
+    } catch (err) {
+        console.error("Fullscreen error:", err);
+    }
+};
 </script>
 
 <template>
-    <div ref="wrapperEl" class="full-page-wrapper">
+    <div
+        ref="wrapperEl"
+        class="full-page-wrapper"
+        :class="{ 'platform-mobile': isMobile }"
+    >
         <div ref="mapEl" class="map-container"></div>
 
-        <Transition name="fade">
-            <LoadingScreen v-if="loading" :progress="progress" />
-        </Transition>
+        <div class="ui-safe-container">
+            <Transition name="fade">
+                <LoadingScreen v-if="loading" :progress="progress" />
+            </Transition>
 
-        <TopBar
-            :fuel="fuel"
-            :game-connected="gameConnected"
-            :game-time="gameTime"
-            :rest-stop-minutes="restStopMinutes"
-            :rest-stop-time="restStoptime"
-            :truck-speed="truckSpeed"
-        />
-
-        <NotificationRoute
-            :is-route-found="routeFound"
-            :is-calculating-route="isCalculatingRoute"
-        />
-
-        <HudButton icon-name="fe:target" :lock-camera="lockCamera" />
-
-        <SpeedLimit
-            :class="{
-                'pos-default': !isRouteActive || isSheetHidden,
-                'pos-expanded': isSheetExpanded && isRouteActive,
-                'pos-collapsed':
-                    !isSheetExpanded && isRouteActive && !isSheetHidden,
-            }"
-            :truck-speed="truckSpeed"
-            :speed-limit="speedLimit"
-        />
-
-        <div class="warnings">
-            <WarningSlide
-                :show-if="hasInGameMarker && isRouteActive"
-                :reset-on="isRouteActive"
-                text="External Route Detected: Set Waypoint"
-            />
-
-            <WarningSlide
-                :show-if="!gameConnected"
-                :reset-on="gameConnected"
-                text="Game Offline"
-            />
-        </div>
-
-        <Transition name="sheet-slide" @after-leave="onSheetClosed">
-            <SheetSlide
-                v-if="isRouteActive"
-                :clear-route-state="clearRouteState"
-                :has-active-job="hasActiveJob"
-                :on-start-navigation="onStartNavigation"
-                :destination-name="destinationName"
-                v-model:is-sheet-expanded="isSheetExpanded"
-                v-model:is-sheet-hidden="isSheetHidden"
-                :route-distance="routeDistance"
-                :route-eta="routeEta"
-                :speed-limit="speedLimit"
+            <TopBar
+                :fuel="fuel"
+                :game-connected="gameConnected"
+                :game-time="gameTime"
+                :rest-stop-minutes="restStopMinutes"
+                :rest-stop-time="restStoptime"
                 :truck-speed="truckSpeed"
             />
-        </Transition>
 
-        <TruckMarker
-            :is-camera-locked="isCameraLocked"
-            ref="truckMarkerComponent"
-        />
+            <div class="back-home" v-if="isElectron || isMobile">
+                <HudButton icon-name="i-tabler:arrow-back" :onClick="goHome" />
+            </div>
+
+            <NotificationGeneral
+                :icon-name="
+                    isClickingEnabled
+                        ? 'i-tabler:hand-click'
+                        : 'i-tabler:hand-click-off'
+                "
+                :trigger="clickingNotificationTrigger"
+                :text="
+                    isClickingEnabled ? 'Tapping Enabled' : 'Tapping Disabled'
+                "
+                :icon-color="isClickingEnabled ? '#4caf50' : '#dd4a34'"
+            />
+
+            <NotificationRoute
+                :is-route-found="routeFound"
+                :is-calculating-route="isCalculatingRoute"
+            />
+
+            <div class="hud-buttons">
+                <HudButton
+                    v-if="isWeb"
+                    icon-name="gridicons:fullscreen"
+                    :onClick="onToggleFullscreen"
+                />
+                <HudButton icon-name="ix:navigation" :onClick="onResetNorth" />
+                <HudButton icon-name="fe:target" :onClick="lockCamera" />
+                <HudButton
+                    :class="isClickingEnabled ? 'red-icon' : 'green-icon'"
+                    :icon-name="
+                        isClickingEnabled
+                            ? 'i-tabler:hand-click-off'
+                            : 'i-tabler:hand-click'
+                    "
+                    :onClick="toggleEnableClicking"
+                />
+            </div>
+
+            <SpeedLimit
+                :class="{
+                    'pos-default': !isRouteActive || isSheetHidden,
+                    'pos-expanded': isSheetExpanded && isRouteActive,
+                    'pos-collapsed':
+                        !isSheetExpanded && isRouteActive && !isSheetHidden,
+                }"
+                :truck-speed="truckSpeed"
+                :speed-limit="speedLimit"
+            />
+
+            <div class="warnings">
+                <WarningSlide
+                    :show-if="hasInGameMarker && isRouteActive"
+                    :reset-on="isRouteActive"
+                    text="External Route Detected: Set Waypoint"
+                />
+
+                <WarningSlide
+                    :show-if="!gameConnected"
+                    :reset-on="gameConnected"
+                    text="Game Offline"
+                />
+            </div>
+
+            <Transition name="sheet-slide" @after-leave="onSheetClosed">
+                <SheetSlide
+                    v-if="isRouteActive"
+                    :clear-route-state="clearRouteState"
+                    :has-active-job="hasActiveJob"
+                    :on-start-navigation="onStartNavigation"
+                    :destination-name="destinationName"
+                    v-model:is-sheet-expanded="isSheetExpanded"
+                    v-model:is-sheet-hidden="isSheetHidden"
+                    :route-distance="routeDistance"
+                    :route-eta="routeEta"
+                    :speed-limit="speedLimit"
+                    :truck-speed="truckSpeed"
+                />
+            </Transition>
+
+            <TruckMarker
+                :is-camera-locked="isCameraLocked"
+                ref="truckMarkerComponent"
+            />
+        </div>
     </div>
 </template>
 

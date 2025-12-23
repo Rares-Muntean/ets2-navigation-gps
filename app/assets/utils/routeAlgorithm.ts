@@ -201,7 +201,7 @@ export const calculateRoute = (
                     if (angle < -100) stepCost += 100_000;
                 }
 
-                if (absAngle > 98) {
+                if (absAngle > 100) {
                     stepCost += Infinity;
                 } else if (angle < -45) stepCost += 2000;
                 else if (angle > 45) stepCost += 500;
@@ -222,15 +222,26 @@ export const calculateRoute = (
                     const segDist = fastDistKm(gLng, gLat, tLng, tLat);
                     traveledDist += segDist;
 
-                    if (traveledDist > 1) {
+                    if (traveledDist > 0.8) {
                         const headingOld = getHeading(gLng, gLat, tLng, tLat);
 
                         const headingNew = getHeading(cLng, cLat, nLng, nLat);
 
+                        const distNowToPast = fastDistKm(
+                            cLng,
+                            cLat,
+                            gLng,
+                            gLat
+                        );
+
+                        const ratio = traveledDist / distNowToPast;
+
                         const diff = getRadianAngleDiff(headingOld, headingNew);
 
-                        if (diff > 2.8) {
+                        if (diff > 3.0 && ratio > 1.0) {
                             stepCost += Infinity;
+                        } else if (diff > 3.0) {
+                            stepCost += 5000;
                         }
                         break;
                     }

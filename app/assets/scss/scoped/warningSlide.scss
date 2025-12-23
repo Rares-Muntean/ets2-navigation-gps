@@ -1,16 +1,13 @@
 .compact-trip-progress {
-    // position: absolute;
-    // bottom: 30px;
-    // right: -2px;
     padding: 4px 14px 4px 6px;
 
+    cursor: pointer;
     display: flex;
     gap: 0.8rem;
     align-items: center;
     justify-content: space-between;
 
     font-size: 1.5rem;
-    font-weight: 700;
     color: $primaryColor;
 
     border: 1.5px solid $primaryColor;
@@ -18,7 +15,7 @@
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
 
-    background-color: #f59e0b;
+    background-color: $warning-color;
     z-index: 999;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 
