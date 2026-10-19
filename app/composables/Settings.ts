@@ -5,7 +5,7 @@ export type TextTheme = "light" | "dark";
 export type RouteTimeMode = "game" | "real";
 export type UiComponent = "speed" | "speedLimit";
 export type ActiveComponents = UiComponent[];
-export type LocaleCode = "en" | "de" | "nl" | "cs" | "sk" | "ko" | "ro";
+export type LocaleCode = "en" | "de" | "nl" | "cs" | "sk" | "ko" | "ro" | "zh";
 
 export interface GameProfile {
     themeColor: string;
